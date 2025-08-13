@@ -1,0 +1,209 @@
+﻿[env]
+project_name = "Polymorphic Data Reporter"
+timezone = "America/Chicago"
+seed = 42
+theme = "dark_blue"
+
+[storage.local]
+enabled = true
+raw_root = "data/raw"
+gold_root = "data/gold"
+
+[storage.minio]
+enabled = true
+endpoint = "http://minio:9000"
+access_key = "admin"
+secret_key = "admin"
+secure = false
+bucket = "datasets"
+raw_prefix = "raw/"
+gold_prefix = "gold/"
+
+[auth]
+# If Airflow UI or any optional service needs creds in-app
+username = "admin"
+password = "admin"
+
+[sources]
+# discover from both local and MinIO
+locations = [
+  "file://data/raw/sales_demo",
+  "s3://datasets/raw/iot_sensors/"
+]
+
+[duckdb]
+persist = true  # physical .duckdb written under data/gold/<slug>/tables/
+
+[profiling.roles]
+cat_cardinality_max = 120
+datetime_formats = ["%Y-%m-%d", "%m/%d/%Y", "%Y-%m-%d %H:%M:%S"]
+
+[profiling.outliers]
+method = "zscore"         # zscore | iqr
+zscore_threshold = 3.0
+iqr_multiplier = 1.5
+
+# ---------- Dynamic Cleaning Policy (highly flexible) ----------
+
+[cleaning.columns]
+drop_missing_pct = 0.90
+min_unique_ratio = 0.001
+always_keep = ["id", "date", "timestamp"]
+cat_cardinality_max = 200           # enforce category dtype under this
+
+[cleaning.normalize]
+strip_text = true
+lowercase_text = false
+standardize_dates = true
+enforce_categorical = true
+
+[cleaning.impute]
+numeric_default = "median"          # mean|median|ffill|bfill|interpolate
+categorical_default = "Unknown"
+text_default = "N/A"
+time_aware_interpolation = true
+
+[cleaning.outliers]
+detect = "zscore"                   # zscore|iqr
+zscore_threshold = 3.0
+iqr_multiplier = 1.5
+handle = "flag"                     # flag|winsorize|drop
+winsor_limits = [0.01, 0.99]
+
+# Rulepacks: ordered lists of conditional rules (mini DSL)
+# Builtins are loaded automatically; you can add/override here.
+
+[[cleaning.rules]]
+id = "coerce-numeric"
+priority = 100
+when = 'role == "numeric" and type == "string"'
+then = 'coerce_numeric()'
+
+[[cleaning.rules]]
+id = "parse-datetime"
+priority = 100
+when = 'role == "time" and type == "string"'
+then = 'parse_datetime(datetime_formats)'
+
+[[cleaning.rules]]
+id = "impute-numeric-time"
+priority = 90
+when = 'role == "numeric" and missing_pct > 0 and has_time_index'
+then = 'impute("interpolate")'
+
+[[cleaning.rules]]
+id = "impute-numeric-default"
+priority = 80
+when = 'role == "numeric" and missing_pct > 0'
+then = 'impute(numeric_default)'
+
+[[cleaning.rules]]
+id = "impute-categorical"
+priority = 80
+when = 'role == "categorical" and missing_pct > 0'
+then = 'impute_value(categorical_default)'
+
+[[cleaning.rules]]
+id = "impute-text"
+priority = 80
+when = 'role == "text" and missing_pct > 0'
+then = 'impute_value(text_default)'
+
+[[cleaning.rules]]
+id = "flag-outliers"
+priority = 70
+when = 'role == "numeric"'
+then = 'outliers(detect, zscore_threshold, iqr_multiplier, handle, winsor_limits)'
+
+[[cleaning.rules]]
+id = "normalize-text"
+priority = 60
+when = 'role == "text"'
+then = 'text_normalize(strip=cleaning.normalize.strip_text, lower=cleaning.normalize.lowercase_text)'
+
+[[cleaning.rules]]
+id = "enforce-categorical"
+priority = 50
+when = 'role == "categorical" and cardinality <= cleaning.columns.cat_cardinality_max'
+then = 'cast_category()'
+
+[[cleaning.rules]]
+id = "drop-sparse"
+priority = 40
+when = 'missing_pct >= cleaning.columns.drop_missing_pct and name notin cleaning.columns.always_keep'
+then = 'drop_column()'
+
+[[cleaning.rules]]
+id = "drop-constant"
+priority = 40
+when = 'unique_ratio <= cleaning.columns.min_unique_ratio and name notin cleaning.columns.always_keep'
+then = 'drop_column()'
+
+# ---------- Topic Selection & Charts ----------
+
+[topics.thresholds]
+min_corr_for_scatter = 0.35
+min_slope_for_trend = 0.02
+max_categories_bar = 20
+max_series_line = 8
+max_charts_total = 12
+
+[charts]
+max_charts_per_topic = 6
+facet_max_series = 8
+topk_categories = 20
+prefer_small_multiples = true
+allow_pie_when_n_le = 5
+enable_advanced = ["treemap","sankey","calendar_heatmap","parcoords"]
+
+[weights]
+suitability = 3.0
+effect_size = 2.5
+signal_quality = 2.0
+readability = 1.5
+complexity = 1.0
+
+# ---------- Output & Orchestration ----------
+
+[reports.enabled_generators]
+csv = true
+json = true
+parquet = true
+charts = true
+html = true
+pdf = true
+
+[reports.html]
+template = "base.html"
+title_prefix = "Report:"
+embed_interactive = true
+
+[reports.pdf]
+engine = "chromium"          # chromium | weasyprint
+page_size = "Letter"
+margins = "0.5in"
+
+[airflow]
+dag_id = "polymorphic_report_dag"
+schedule = "0 2 * * *"
+max_active_runs = 1
+catchup = false
+concurrency = 8
+task_retries = 2
+username = "admin"
+password = "admin"
+
+[docker]
+compose_file = "docker/docker-compose.yml"
+airflow_image = "local/airflow:latest"
+chrome_image = "local/chrome:latest"
+
+[logging]
+level = "INFO"
+structured_json = true
+
+[publishing]
+enabled = false
+target = "s3://datasets/gold-exports/"
+access_key = "admin"
+secret_key = "admin"
