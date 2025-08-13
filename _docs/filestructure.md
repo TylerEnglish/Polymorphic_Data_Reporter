@@ -62,10 +62,11 @@ polymorphic-data-reporter/
 │  ├─ chart/                 # <<< new: one home for all chart families
 │  │  ├─ __init__.py
 │  │  ├─ common.py           # theme, axes, ids, export (HTML/PNG)
+│  │  ├─ change_over_time.py # Time charts
 │  │  ├─ deviation.py        # diverging bar, spine, surplus/deficit
 │  │  ├─ correlation.py      # scatter/bubble, xy-heatmap, col+line
 │  │  ├─ ranking.py          # ordered bar, lollipop, slope, bump, strip
-│  │  ├─ distribution.py     # hist/violin/box/area/candlestick/calendar
+│  │  ├─ distribution.py     # hist/violin/box/
 │  │  ├─ magnitude.py        # paired bars, radar, parcoords
 │  │  ├─ part_to_whole.py    # stacked, treemap, pie (guarded)
 │  │  ├─ spatial.py          # choropleth, proportional symbol
