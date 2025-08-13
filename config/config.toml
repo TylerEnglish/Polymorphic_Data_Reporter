@@ -155,6 +155,7 @@ topk_categories = 20
 prefer_small_multiples = true
 allow_pie_when_n_le = 5
 enable_advanced = ["treemap","sankey","calendar_heatmap","parcoords"]
+export_static_png = true
 
 [weights]
 suitability = 3.0
@@ -179,7 +180,7 @@ title_prefix = "Report:"
 embed_interactive = true
 
 [reports.pdf]
-engine = "chromium"          # chromium | weasyprint
+engine = "chromium"          # chromium
 page_size = "Letter"
 margins = "0.5in"
 
