@@ -1293,6 +1293,18 @@ typing-extensions = "*"
 urllib3 = "*"
 
 [[package]]
+name = "more-itertools"
+version = "10.7.0"
+description = "More routines for operating on iterables, beyond itertools"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "more_itertools-10.7.0-py3-none-any.whl", hash = "sha256:d43980384673cb07d2f7d2d918c616b30c659c089ee23953f601d6609c67510e"},
+    {file = "more_itertools-10.7.0.tar.gz", hash = "sha256:9fddd5403be01a94b204faadcff459ec3568cf110265d3c54323e1e866ad29d3"},
+]
+
+[[package]]
 name = "multidict"
 version = "6.6.4"
 description = "multidict implementation"
@@ -2673,6 +2685,18 @@ files = [
 ]
 
 [[package]]
+name = "toolz"
+version = "0.12.1"
+description = "List processing tools and functional utilities"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "toolz-0.12.1-py3-none-any.whl", hash = "sha256:d22731364c07d72eea0a0ad45bafb2c2937ab6fd38a3507bf55eae8744aa7d85"},
+    {file = "toolz-0.12.1.tar.gz", hash = "sha256:ecca342664893f177a13dac0e6b41cbd8ac25a358e5f215316d43e2100224f4d"},
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.14.1"
 description = "Backported and Experimental Type Hints for Python 3.9+"
@@ -3070,4 +3094,4 @@ pdf = ["weasyprint"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.13"
-content-hash = "8a12fdf61f4e4c289d063bc57b80d62cdcffcdc757d87c061c192340322da7c4"
+content-hash = "3a5b7703f29c8b313c142290b42b872c12ef18e88bbeaecf011cfdc92123df61"

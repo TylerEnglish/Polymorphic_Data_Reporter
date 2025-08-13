@@ -29,3 +29,6 @@ black==24.10.0
 isort==5.13.2
 mypy==1.17.1
 ruff==0.6.9
+
+toolz==0.12.1
+more-itertools==10.5.0

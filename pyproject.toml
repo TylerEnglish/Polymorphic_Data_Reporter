@@ -2,9 +2,7 @@
 name = "polymorphic-data-reporter"
 version = "0.1.0"
 description = "Dynamic, polymorphic data reporter with ETL stages, automated profiling, chart picking, and templated reports."
-authors = ["You <you@example.com>"]
 readme = "README.md"
-license = "MIT"
 packages = [{ include = "src" }]
 
 [tool.poetry.dependencies]
@@ -21,13 +19,16 @@ python-slugify = "^8.0.4"
 pyyaml = "^6.0.2"
 tomlkit = "^0.13.2"
 typing-extensions = "^4.12.2"
+# Utilities (new)
+toolz = "^0.12.1"
+more-itertools = "^10.5.0"
 # Storage / IO
 minio = "^7.2.16"
 boto3 = "^1.39.11"
 s3fs = "^2024.12.0"
-# Static PNG via headless Chromium screenshot (no Kaleido)
-playwright = "^1.54.0" 
-# Optional PDF engine (WeasyPrint) – keep optional
+# Static PNG via headless Chromium screenshot
+playwright = "^1.54.0"
+# Optional PDF engine
 weasyprint = { version = "^62.3", optional = true }
 
 [tool.poetry.group.dev.dependencies]
