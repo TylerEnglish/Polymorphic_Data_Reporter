@@ -183,6 +183,19 @@ class PublishingCfg(BaseModel):
     secret_key: str = "admin"
 
 
+class NLPCfg(BaseModel):
+    sample_rows: int = 5000
+    min_schema_confidence: float = 0.85
+    min_role_confidence: float = 0.80
+    max_iter: int = 3
+    min_improvement: float = 0.03
+    enable_domain_templates: bool = True
+
+
+class NLGCfg(BaseModel):
+    inventory_key: str = "_inventory"
+    narrative_filename: str = "narrative.txt"
+
 # ---------- Grouped/nested models ----------
 
 # Grouped/nested models
@@ -228,15 +241,24 @@ class RootCfg(BaseModel):
     logging: LoggingCfg
     publishing: PublishingCfg
 
+    nlp: NLPCfg = NLPCfg()
+    nlg: NLGCfg = NLGCfg()
+
     # Private attribute (not a field); used only to resolve relative paths
     _config_dir: Optional[Path] = PrivateAttr(default=None)  # <-- now defined
 
     @model_validator(mode="after")
     def _normalize_paths(self):
         if self._config_dir:
+            # If the config file lives in a conventional "config" folder,
+            # normalize relative paths against the PROJECT root (parent of "config").
+            # Otherwise, fall back to resolving relative to the config file's directory.
+            base_dir = self._config_dir.parent if self._config_dir.name.lower() == "config" else self._config_dir
+
             def _abs(p: str) -> str:
                 pp = Path(p)
-                return str(pp if pp.is_absolute() else (self._config_dir / pp).resolve())
+                return str(pp if pp.is_absolute() else (base_dir / pp).resolve())
+
             self.storage.local.raw_root = _abs(self.storage.local.raw_root)
             self.storage.local.gold_root = _abs(self.storage.local.gold_root)
         return self
@@ -292,6 +314,8 @@ class RootCfg(BaseModel):
         raw["storage"].setdefault("minio", {})
         raw.setdefault("auth", {})
         raw.setdefault("sources", {})
+        raw.setdefault("nlp", {})
+        raw.setdefault("nlg", {})
         raw.setdefault("duckdb", {})
         raw.setdefault("profiling", {})
         raw["profiling"].setdefault("roles", {})
@@ -351,6 +375,8 @@ class RootCfg(BaseModel):
             docker=DockerCfg(**raw["docker"]),
             logging=LoggingCfg(**raw["logging"]),
             publishing=PublishingCfg(**raw["publishing"]),
+            nlp=NLPCfg(**raw.get("nlp", {})),
+            nlg=NLGCfg(**raw.get("nlg", {})),
         )
         cfg._config_dir = p.parent.resolve()
         return cfg._normalize_paths()

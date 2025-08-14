@@ -43,6 +43,20 @@ method = "zscore"         # zscore | iqr
 zscore_threshold = 3.0
 iqr_multiplier = 1.5
 
+# ---------- NLP / NLG ----------
+
+[nlp]
+sample_rows = 5000
+min_schema_confidence = 0.85
+min_role_confidence = 0.80
+max_iter = 3
+min_improvement = 0.03
+enable_domain_templates = true
+
+[nlg]
+inventory_key = "_inventory"
+narrative_filename = "narrative.txt"
+
 # ---------- Dynamic Cleaning Policy (highly flexible) ----------
 
 [cleaning.columns]

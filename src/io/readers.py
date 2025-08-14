@@ -72,6 +72,9 @@ def read_any(
     if fmt == "feather":
         return pd.read_feather(BytesIO(data))
     if fmt in {"json", "ndjson"}:
+        # If caller specifies json_lines, honor it unconditionally.
+        # This avoids pandas "Trailing data" errors on NDJSON like:
+        # {"a":1}\n{"a":2}\n...
         if json_lines:
             return pd.read_json(BytesIO(data), lines=True)
         return pd.read_json(BytesIO(data))

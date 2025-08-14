@@ -54,6 +54,7 @@ clean-one = "scripts.clean_one:main"
 topics-one = "scripts.topics_one:main"
 report-one = "scripts.report_one:main"
 e2e-one = "scripts.end_to_end:main"
+nlp-run = "scripts.nlp.nlp_bootstrap:main"
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]
