@@ -69,7 +69,7 @@ def normalize_null_tokens(
     if not (pd.api.types.is_object_dtype(s.dtype) or pd.api.types.is_string_dtype(s.dtype)):
         return s.copy(deep=True)
 
-    # ✅ union custom tokens with defaults instead of replacing them
+    # union custom tokens with defaults instead of replacing them
     base = set(_DEFAULT_NULL_TOKENS)
     if null_tokens is not None:
         base |= set(null_tokens)

@@ -132,7 +132,6 @@ def apply_outlier_policy(
     Apply outlier policy and return (series_out, mask).
     - Non-numeric inputs are returned unchanged with an all-False mask.
     """
-    # NEW: short-circuit for non-numeric dtypes
     if not pd.api.types.is_numeric_dtype(s.dtype):
         mask = pd.Series([False] * len(s), index=s.index, dtype=object)
         mask = _to_python_bool_series(mask, s.index)
