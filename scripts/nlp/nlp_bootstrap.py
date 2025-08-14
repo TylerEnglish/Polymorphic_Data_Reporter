@@ -3,16 +3,23 @@ import argparse
 import json
 import shutil
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 from src.config_model.model import RootCfg
 from src.io.storage import build_storage_from_config
 from src.nlp.bootstrap import run_nlp_bootstrap
 from src.nlg.narrative import narrative_payload
 
+# Recognized data file extensions
+DATA_EXTS = {".csv", ".json", ".ndjson", ".parquet", ".pq", ".feather", ".arrows", ".txt"}
+
 
 def _is_hidden(p: Path) -> bool:
     return p.name.startswith(".") or p.name.startswith("_")
+
+
+def _is_data_file(p: Path) -> bool:
+    return p.is_file() and p.suffix.lower() in DATA_EXTS
 
 
 def _raw_root(cfg: RootCfg) -> Path:
@@ -37,66 +44,128 @@ def _ensure_slug_dir_for_single_file(raw_root: Path, file_path: Path) -> str:
     return slug
 
 
-def _resolve_targets(raw_root: Path, target: str | None) -> List[Tuple[str, Path]]:
+def _slugify_file(raw_root: Path, f: Path) -> str:
+    """Stable dataset slug for a single file based on its relative path under raw/."""
+    rel = f.relative_to(raw_root)
+    parts = list(rel.parts)
+    parts[-1] = Path(parts[-1]).stem  # drop one suffix
+    return "__".join(parts)
+
+
+# ---------- Granularity enumerators (used when --select is NOT provided) ----------
+
+def _targets_by_slug(raw_root: Path) -> List[Tuple[str, Path]]:
+    out: List[Tuple[str, Path]] = []
+    for child in sorted(raw_root.iterdir()):
+        if _is_hidden(child):
+            continue
+        if child.is_dir():
+            out.append((child.name, child))
+        elif _is_data_file(child):
+            slug = _ensure_slug_dir_for_single_file(raw_root, child)
+            out.append((slug, raw_root / slug))
+    return out
+
+
+def _targets_by_subdir(raw_root: Path) -> List[Tuple[str, Path]]:
     """
-    Returns (dataset_slug, resolved_path) for each thing we should process.
-    If `target` is None -> return all children under raw/ (dirs + top-level files).
-    If `target` is provided -> it can be:
-      - a slug name (directory name under raw/)
-      - a direct path to a folder under raw/
-      - a direct path to a single file under raw/
-      - a bare filename under raw/ (e.g., 'foo.parquet')
-      - an absolute/relative file path outside raw/ (will be staged to raw/<stem>/)
+    Each immediate subdirectory inside each top-level slug becomes a dataset.
+    If a slug has no subdirs, treat the slug itself as a dataset.
     """
     out: List[Tuple[str, Path]] = []
+    for slug_dir in sorted(p for p in raw_root.iterdir() if p.is_dir() and not _is_hidden(p)):
+        subdirs = [p for p in slug_dir.iterdir() if p.is_dir() and not _is_hidden(p)]
+        if not subdirs:
+            out.append((slug_dir.name, slug_dir))
+            continue
+        for sd in subdirs:
+            ds_slug = f"{slug_dir.name}__{sd.name}"
+            out.append((ds_slug, sd))
+    return out
 
-    if target is None:
-        for child in sorted(raw_root.iterdir()):
-            if _is_hidden(child):
-                continue
-            if child.is_dir():
-                out.append((child.name, child))
-            elif child.is_file():
-                slug = _ensure_slug_dir_for_single_file(raw_root, child)
-                out.append((slug, raw_root / slug))
-        return out
 
-    p = Path(target)
-    if not p.is_absolute():
-        # Try relative to raw_root
-        candidate = (raw_root / target).resolve()
-        if candidate.exists():
-            p = candidate
-        else:
-            # If they passed a slug and the folder exists, accept it
-            if (raw_root / target).exists():
-                p = (raw_root / target).resolve()
-            # If they passed a path outside raw_root, accept it if it exists
-            elif Path(target).exists():
-                p = Path(target).resolve()
-            else:
-                raise FileNotFoundError(f"Could not resolve selection '{target}' under {raw_root}")
-
-    # If they pointed to raw_root, expand to everything
-    if p == raw_root:
-        return _resolve_targets(raw_root, None)
-
-    if p.is_dir():
-        return [(p.name, p)]
-    if p.is_file():
-        if p.parent == raw_root:
-            slug = _ensure_slug_dir_for_single_file(raw_root, p)
-            return [(slug, raw_root / slug)]
-        # Outside raw/: stage to raw/<stem>/
-        slug = p.stem
+def _targets_by_file(raw_root: Path) -> List[Tuple[str, Path]]:
+    """
+    Every individual file becomes its own dataset. We stage each file into
+    raw/<slugified_relative_path>/<originalname> for consistent processing.
+    """
+    out: List[Tuple[str, Path]] = []
+    for f in sorted(raw_root.rglob("*")):
+        if _is_hidden(f) or not _is_data_file(f):
+            continue
+        slug = _slugify_file(raw_root, f)
         slug_dir = raw_root / slug
         slug_dir.mkdir(parents=True, exist_ok=True)
-        staged = slug_dir / p.name
-        if not staged.exists():
-            shutil.copy2(p, staged)
-        return [(slug, slug_dir)]
+        staged = slug_dir / f.name
+        # Avoid copying if it's already that exact file
+        if staged.resolve() != f.resolve() and not staged.exists():
+            shutil.copy2(f, staged)
+        out.append((slug, slug_dir))
+    return out
 
-    raise FileNotFoundError(f"Selection '{target}' does not exist or is not a file/folder.")
+
+def _resolve_targets(raw_root: Path, target: Optional[str], *, granularity: str = "slug") -> List[Tuple[str, Path]]:
+    """
+    Returns (dataset_slug, resolved_path) for each thing we should process.
+
+    If `target` is provided -> resolve that one thing (slug/folder/file/absolute path).
+    If `target` is None -> enumerate under raw_root according to granularity:
+        - "slug": each top-level dir (and top-level data file)
+        - "subdir": each subdir under each top-level slug (fallback to slug itself if no subdirs)
+        - "file": each individual data file becomes a dataset
+    """
+    if target is not None:
+        # Specific selection resolution (compatible with previous behavior)
+        p = Path(target)
+        if not p.is_absolute():
+            candidate = (raw_root / target).resolve()
+            if candidate.exists():
+                p = candidate
+            else:
+                if (raw_root / target).exists():
+                    p = (raw_root / target).resolve()
+                elif Path(target).exists():
+                    p = Path(target).resolve()
+                else:
+                    raise FileNotFoundError(f"Could not resolve selection '{target}' under {raw_root}")
+
+        # If they pointed to raw_root, expand according to granularity
+        if p == raw_root:
+            if granularity == "slug":
+                return _targets_by_slug(raw_root)
+            if granularity == "subdir":
+                return _targets_by_subdir(raw_root)
+            if granularity == "file":
+                return _targets_by_file(raw_root)
+            raise ValueError(f"Unknown granularity: {granularity}")
+
+        if p.is_dir():
+            # Treat the directory itself as a dataset
+            return [(p.name, p)]
+
+        if p.is_file():
+            if p.parent == raw_root and _is_data_file(p):
+                slug = _ensure_slug_dir_for_single_file(raw_root, p)
+                return [(slug, raw_root / slug)]
+            # Outside raw/: stage to raw/<stem>/
+            slug = p.stem
+            slug_dir = raw_root / slug
+            slug_dir.mkdir(parents=True, exist_ok=True)
+            staged = slug_dir / p.name
+            if not staged.exists():
+                shutil.copy2(p, staged)
+            return [(slug, slug_dir)]
+
+        raise FileNotFoundError(f"Selection '{target}' does not exist or is not a file/folder.")
+
+    # No explicit target: enumerate all by granularity
+    if granularity == "slug":
+        return _targets_by_slug(raw_root)
+    if granularity == "subdir":
+        return _targets_by_subdir(raw_root)
+    if granularity == "file":
+        return _targets_by_file(raw_root)
+    raise ValueError(f"Unknown granularity: {granularity}")
 
 
 def _run_one(project_root: Path, cfg: RootCfg, dataset_slug: str) -> None:
@@ -132,8 +201,14 @@ def main() -> None:
         default=None,
         help=(
             "Optional: a slug (folder under data/raw), a folder path, or a single file. "
-            "If omitted, processes all top-level items in data/raw."
+            "If omitted, enumerates datasets under data/raw."
         ),
+    )
+    ap.add_argument(
+        "--granularity",
+        choices=["slug", "subdir", "file"],
+        default=None,
+        help="How to split datasets under data/raw when --select is omitted (default comes from config).",
     )
     ap.add_argument(
         "--config",
@@ -146,7 +221,10 @@ def main() -> None:
     cfg = RootCfg.load(args.config)
     raw_root = _raw_root(cfg)
 
-    targets = _resolve_targets(raw_root, args.select)
+    # Prefer CLI flag; else fall back to config nlp.granularity; else default "slug"
+    granularity = args.granularity or getattr(getattr(cfg, "nlp", object()), "granularity", "slug")
+
+    targets = _resolve_targets(raw_root, args.select, granularity=granularity)
     if not targets:
         print(f"No targets found under {raw_root}")
         return

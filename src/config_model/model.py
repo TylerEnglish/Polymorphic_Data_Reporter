@@ -1,4 +1,3 @@
-# src/config_model/model.py
 from __future__ import annotations
 from typing import List, Literal, Optional
 from dataclasses import dataclass
@@ -216,7 +215,7 @@ class NLPCfg(BaseModel):
     max_iter: int = 3
     min_improvement: float = 0.03
     enable_domain_templates: bool = True
-
+    granularity: Literal["slug", "subdir", "file"] = "slug"
     role_scoring: RoleScoringCfg = RoleScoringCfg()
 
 

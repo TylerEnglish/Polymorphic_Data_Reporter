@@ -52,13 +52,14 @@ min_role_confidence = 0.90
 max_iter = 10
 min_improvement = 0.03
 enable_domain_templates = true
+granularity = "slug"  # slug | subdir | file
 
 [nlp.role_scoring]
 name_weight = 0.45
 value_weight = 0.55
 
 # thresholds
-bool_token_min_ratio = 0.59     # share of values that look boolean
+bool_token_min_ratio = 0.57     # share of values that look boolean
 date_parse_min_ratio = 0.60     # share of values that parse as dates
 unique_id_ratio = 0.95          # uniqueness ratio to consider "id-ish"
 categorical_max_unique_ratio = 0.02
@@ -67,7 +68,7 @@ min_non_null_ratio = 0.10       # ignore columns with less data than this
 
 # bonuses/penalties
 bonus_id_name = 0.10            # extra if name strongly looks like id (e.g., *_id)
-penalize_bool_for_many_tokens = 0.05  # slight penalty if too many distinct tokens for bool
+penalize_bool_for_many_tokens = 0.08  # slight penalty if too many distinct tokens for bool
 
 [nlg.constants]
 inventory_key = "_inventory"
