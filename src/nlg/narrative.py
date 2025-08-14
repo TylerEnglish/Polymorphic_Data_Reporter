@@ -31,19 +31,34 @@ def build_narrative(dataset_slug: str, bootstrap: Dict[str, Any], inventory_summ
     for k, v in inventory_summary["by_kind"].items():
         lines.append(f"  - {k}: {v}")
     lines.append("")
-    lines.append("## Columns")
+    lines.append("## Columns (role → confidence) and suggested fixes")
+
     for c in bootstrap.get("columns", []):
         hint = c.get("hints", {}) or {}
-        hint_bits = []
-        if hint.get("unit_hint"):
-            hint_bits.append(f"unit={hint['unit_hint']}")
-        if hint.get("domain_guess"):
-            hint_bits.append(f"domain={hint['domain_guess']}")
-        if hint.get("canonical_map_size"):
-            hint_bits.append(f"canon={hint['canonical_map_size']}")
-        hb = f" [{', '.join(hint_bits)}]" if hint_bits else ""
-        lines.append(f"- {c['name']} : {c['dtype']} → {c['role']} ({c['role_confidence']:.2f}){hb}")
+        m = c.get("metrics", {}) or {}
+        s = c.get("suggestions", {}) or {}
+        hb = []
+        if hint.get("unit_hint"): hb.append(f"unit={hint['unit_hint']}")
+        if hint.get("domain_guess"): hb.append(f"domain={hint['domain_guess']}")
+        if hint.get("canonical_map_size"): hb.append(f"canon={hint['canonical_map_size']}")
+        mb = []
+        if "non_null_ratio" in m:
+            mb.append(f"non-null={m['non_null_ratio']:.2f}")
+        if "unique_ratio" in m:
+            mb.append(f"uniq={m['unique_ratio']:.2f}")
+        sugg = []
+        if s.get("drop"): sugg.append("DROP")
+        if s.get("impute"): sugg.append(f"impute={s['impute']}")
+        if s.get("normalize"): sugg.append("normalize")
+        if s.get("treat_as_null"): sugg.append(f"nullify={','.join(s['treat_as_null'])}")
+        hb_s = f" [{', '.join(hb)}]" if hb else ""
+        mb_s = f" {{{', '.join(mb)}}}" if mb else ""
+        sg_s = f" -> {'; '.join(sugg)}" if sugg else ""
+        lines.append(
+            f"- {c['name']} : {c['dtype']} → {c['role']} ({c['role_confidence']:.2f}){hb_s}{mb_s}{sg_s}"
+        )
     return "\n".join(lines)
+
 
 def narrative_payload(dataset_slug: str, bootstrap: Dict[str, Any], entries: List[Dict[str, Any]]) -> Dict[str, Any]:
     inventory_summary = summarize_inventory(entries)

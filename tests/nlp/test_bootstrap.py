@@ -73,6 +73,14 @@ def test_run_nlp_bootstrap_end_to_end_csv_json_parquet(tmp_path: Path):
     assert bs["column_count"] >= 1
     assert isinstance(bs["schema_confidence"], float)
 
+    # columns have metrics + suggestions
+    assert isinstance(bs["columns"], list) and len(bs["columns"]) >= 1
+    c0 = bs["columns"][0]
+    assert "metrics" in c0 and isinstance(c0["metrics"], dict)
+    assert "non_null_ratio" in c0["metrics"]
+    assert 0.0 <= c0["metrics"]["non_null_ratio"] <= 1.0
+    assert "suggestions" in c0 and isinstance(c0["suggestions"], dict)
+
     # entries match discovered files (md ignored)
     uris = [e["uri"] for e in out["entries"]]
     assert any(u.endswith("a.csv") for u in uris)

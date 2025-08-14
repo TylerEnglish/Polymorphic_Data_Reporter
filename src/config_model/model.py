@@ -182,6 +182,32 @@ class PublishingCfg(BaseModel):
     access_key: str = "admin"
     secret_key: str = "admin"
 
+class RoleScoringCfg(BaseModel):
+    # weights
+    name_weight: float = 0.45
+    value_weight: float = 0.55
+
+    # thresholds
+    bool_token_min_ratio: float = 0.75
+    date_parse_min_ratio: float = 0.60
+    unique_id_ratio: float = 0.95
+    categorical_max_unique_ratio: float = 0.02
+    text_min_avg_len: float = 8.0
+    min_non_null_ratio: float = 0.10
+
+    # bonuses/penalties
+    bonus_id_name: float = 0.10
+    penalize_bool_for_many_tokens: float = 0.05
+
+    @model_validator(mode="after")
+    def _weights_ok(self):
+        s = float(self.name_weight) + float(self.value_weight)
+        # keep it permissive: just prevent both zeros
+        if s <= 0:
+            # default back to your TOML defaults
+            object.__setattr__(self, "name_weight", 0.45)
+            object.__setattr__(self, "value_weight", 0.55)
+        return self
 
 class NLPCfg(BaseModel):
     sample_rows: int = 5000
@@ -190,6 +216,8 @@ class NLPCfg(BaseModel):
     max_iter: int = 3
     min_improvement: float = 0.03
     enable_domain_templates: bool = True
+
+    role_scoring: RoleScoringCfg = RoleScoringCfg()
 
 
 class NLGCfg(BaseModel):
@@ -316,6 +344,7 @@ class RootCfg(BaseModel):
         raw.setdefault("sources", {})
         raw.setdefault("nlp", {})
         raw.setdefault("nlg", {})
+        raw["nlp"].setdefault("role_scoring", {})
         raw.setdefault("duckdb", {})
         raw.setdefault("profiling", {})
         raw["profiling"].setdefault("roles", {})

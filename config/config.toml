@@ -46,14 +46,30 @@ iqr_multiplier = 1.5
 # ---------- NLP / NLG ----------
 
 [nlp]
-sample_rows = 5000
-min_schema_confidence = 0.85
-min_role_confidence = 0.80
-max_iter = 3
+sample_rows = 20000
+min_schema_confidence = 0.90
+min_role_confidence = 0.90
+max_iter = 10
 min_improvement = 0.03
 enable_domain_templates = true
 
-[nlg]
+[nlp.role_scoring]
+name_weight = 0.45
+value_weight = 0.55
+
+# thresholds
+bool_token_min_ratio = 0.59     # share of values that look boolean
+date_parse_min_ratio = 0.60     # share of values that parse as dates
+unique_id_ratio = 0.95          # uniqueness ratio to consider "id-ish"
+categorical_max_unique_ratio = 0.02
+text_min_avg_len = 8            # avg string length to lean "text" vs "categorical"
+min_non_null_ratio = 0.10       # ignore columns with less data than this
+
+# bonuses/penalties
+bonus_id_name = 0.10            # extra if name strongly looks like id (e.g., *_id)
+penalize_bool_for_many_tokens = 0.05  # slight penalty if too many distinct tokens for bool
+
+[nlg.constants]
 inventory_key = "_inventory"
 narrative_filename = "narrative.txt"
 

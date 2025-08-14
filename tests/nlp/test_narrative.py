@@ -31,7 +31,7 @@ def test_build_narrative_text_includes_core_sections():
     txt = build_narrative("sales_demo", bootstrap, inv_summary)
     assert "# Dataset: sales_demo" in txt
     assert "Files discovered" in txt
-    assert "Columns" in txt
+    assert "Columns" in txt  # tolerant to "Columns (role → confidence) and suggested fixes"
     assert "amount" in txt and "when" in txt
     assert "unit=currency" in txt
     assert "domain=finance" in txt
