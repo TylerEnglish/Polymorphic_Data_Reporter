@@ -8,7 +8,6 @@ import pandas as pd
 # Your chart module
 from src.chart import change_over_time as cot
 
-
 # ---------- small I/O helper ----------
 
 def _save(fig, outdir: Path, name: str):
@@ -21,7 +20,6 @@ def _save(fig, outdir: Path, name: str):
         fig.write_image(str(png), scale=2, width=1000, height=600)
     except Exception:
         pass
-
 
 # ---------- synthetic data factories (reproducible) ----------
 

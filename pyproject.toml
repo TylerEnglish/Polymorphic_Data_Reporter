@@ -28,10 +28,12 @@ more-itertools = "^10.5.0"
 minio = "^7.2.16"
 boto3 = "^1.39.11"
 s3fs = "^2024.12.0"
+pyarrow = "^16.1.0"
 # Static PNG via headless Chromium screenshot
 playwright = "^1.54.0"
 # Optional PDF engine
 weasyprint = { version = "^62.3", optional = true }
+faker = "^25.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
