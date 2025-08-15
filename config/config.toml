@@ -120,15 +120,9 @@ then = 'coerce_numeric()'
 
 [[cleaning.rules]]
 id = "coerce-numeric-from-string-heuristic"
-priority = 110   # bump above parse/impute to ensure it runs early
+priority = 90
 when = 'type == "string" and role != "time" and avg_len <= 24 and missing_pct < 0.99'
 then = 'coerce_numeric()'
-
-[[cleaning.rules]]
-id = "parse-datetime"
-priority = 100
-when = 'role == "time" and type == "string"'
-then = 'parse_datetime(datetime_formats)'
 
 [[cleaning.rules]]
 id = "impute-numeric-any"
@@ -185,16 +179,17 @@ when = 'role == "text"'
 then = 'cast_string()'
 
 [[cleaning.rules]]
-id = "impute-time-default"
-priority = 80
-when = 'role == "time" and missing_pct > 0'
-then = 'impute("ffill")'   # or "bfill"
-
-[[cleaning.rules]]
 id = "impute-time-forward"
-priority = 90
+priority = 100
 when = 'role == "time" and missing_pct > 0 and has_time_index'
 then = 'impute_dt("ffill")'
+
+# Otherwise median as a fallback
+[[cleaning.rules]]
+id = "impute-time-default"
+priority = 95
+when = 'role == "time" and missing_pct > 0 and not has_time_index'
+then = 'impute_dt("median")'
 
 [[cleaning.rules]]
 id = "impute-time-median"
@@ -234,9 +229,21 @@ then = 'drop_column()'
 
 [[cleaning.rules]]
 id = "parse-datetime-by-name-heuristic"
-priority = 100
+priority = 130
 when = 'type == "string" and (icontains(name,"date") or icontains(name,"time") or icontains(name,"dt_"))'
 then = 'parse_datetime(datetime_formats)'
+
+[[cleaning.rules]]
+id = "parse-datetime"
+priority = 120
+when = 'role == "time" and type == "string"'
+then = 'parse_datetime(datetime_formats)'
+
+[[cleaning.rules]]
+id = "parse-datetime-from-numeric"
+priority = 118
+when = 'role == "time" and type in ["int","float"]'
+then = 'parse_epoch()'   # auto-detects ns/ms/s
 
 # ---------- Topic Selection & Charts ----------
 

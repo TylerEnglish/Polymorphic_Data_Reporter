@@ -10,7 +10,7 @@ from pandas.api.types import CategoricalDtype
 
 # project imports
 from src.config_model.model import RootCfg
-from src.cleaning.engine import run_clean_pass
+from src.cleaning.engine import run_clean_pass, RuleSpec
 from src.cleaning.rescore import rescore_after_clean
 from src.nlp.roles import _dtype_str, guess_role
 from src.nlp.schema import ProposedSchema, ColumnSchema, ColumnHints, RoleConfidence
@@ -415,7 +415,22 @@ def main():
         print(f"ITER {it}")
 
         # clean starting from the sampled/raw frame with the *current* proposal
-        result = run_clean_pass(df_raw, proposed, cfg)
+        prev_suggestions = {}
+        for it in range(1, args.max_iters + 1):
+            extra_rules = []
+            for col, actions in (prev_suggestions or {}).items():
+                for i, then in enumerate(actions, start=1):
+                    extra_rules.append(
+                        RuleSpec(
+                            id=f"followup-{col}-{i}",
+                            priority=999,
+                            when=f'name == "{col}"',
+                            then=then,
+                        )
+                    )
+            result = run_clean_pass(df_raw, proposed, cfg, extra_rules=extra_rules)
+            prev_suggestions = result.report.get("suggestions", {})
+
         df_after = result.clean_df
 
         # rescore (prefer the one bundled in result)

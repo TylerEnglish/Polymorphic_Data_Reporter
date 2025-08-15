@@ -81,11 +81,8 @@ def _quick_facts(series: pd.Series, *, name: str, schema_role: str, df_index) ->
 
 # ---- Public API ----
 
-def run_clean_pass(
-    df: pd.DataFrame,
-    proposed_schema: ProposedSchema,
-    cfg: RootCfg,
-) -> CleaningResult:
+def run_clean_pass(df, proposed_schema, cfg, extra_rules: list[RuleSpec] | None = None) -> CleaningResult:
+
     """
     One pure cleaning pass:
       - profile
@@ -96,6 +93,10 @@ def run_clean_pass(
     """
     from .policy import build_policy_from_config
     rules, env = build_policy_from_config(cfg)
+
+    if extra_rules:
+        rules.extend(extra_rules)
+
     registry = compile_actions_registry()
 
     schema_roles = {c["name"]: c["role"] for c in proposed_schema.to_dict()["columns"]}

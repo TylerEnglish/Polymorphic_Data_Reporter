@@ -32,6 +32,7 @@ def compile_actions_registry() -> dict[str, ActionFn]:
     from .rules_builtin.outliers import apply_outlier_policy  # returns (series, mask)
     from .rules_builtin.text_norm import text_normalize, normalize_null_tokens
     from .rules_builtin.units import standardize_numeric_units  # returns (series, meta)
+    from .rules_builtin.datetime_ops import parse_epoch_auto
 
     # Wrap primitives into (s, ctx) -> (s2, notes)
     def _wrap(fn, note_fmt: str) -> ActionFn:
@@ -72,6 +73,7 @@ def compile_actions_registry() -> dict[str, ActionFn]:
             lambda s, **p: impute_value(s, **{**p, "force": True}),
             "materialize_missing_as"
         ),
+        "parse_epoch": _wrap(parse_epoch_auto, "parse_epoch"),
         "impute_dt":        _wrap(impute_datetime, "impute_dt"),
         "cast_string": _wrap(cast_string_dtype, "cast_string"),
         "outliers":         _wrap_outliers(apply_outlier_policy),
