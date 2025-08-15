@@ -38,6 +38,43 @@ class CleaningResult:
     column_report: dict[str, dict[str, Any]]
     dropped: dict[str, str]
 
+# ---- helpers ----
+
+def _dtype_tag(s: pd.Series) -> str:
+    from ..nlp.roles import _dtype_str
+    return _dtype_str(s)
+
+
+def _quick_facts(series: pd.Series, *, name: str, schema_role: str, df_index) -> dict:
+    n = len(series) or 1
+    t = _dtype_tag(series)
+    try:
+        nunique = int(series.nunique(dropna=True))
+    except TypeError:
+        nunique = int(series.astype(str).nunique(dropna=True))
+    avg_len = None
+    if t == "string":
+        vals = series.dropna().astype(str)
+        avg_len = float(vals.map(len).mean()) if not vals.empty else 0.0
+    missing_pct = float(series.isna().mean())
+    return {
+        "name": name,
+        "type": t,
+        "role": schema_role,                  # keep schema role stable
+        "missing_pct": missing_pct,
+        "non_null_ratio": 1.0 - missing_pct,
+        "nunique": nunique,
+        "unique_ratio": float(nunique) / float(n),
+        "cardinality": nunique,
+        "avg_len": avg_len,
+        "has_time_index": pd.api.types.is_datetime64_any_dtype(df_index),
+        # extras used in some rules; safe defaults if not needed
+        "mean": None, "std": None, "iqr": None,
+        "bool_token_ratio": 0.0,
+        "datetime_parse_ratio": 0.0,
+        "is_monotonic_increasing": False,
+    }
+
 # ---- Public API ----
 
 def run_clean_pass(
@@ -102,34 +139,29 @@ def apply_rules(
     rules_sorted = sorted(rules, key=lambda r: (-r.priority, r.id))
 
     # Pre-compile conditions & actions
-    compiled: list[tuple[RuleSpec, Any, Any]] = []
+    compiled = []
     for r in rules_sorted:
         cond = compile_condition(r.when)
         action, params = parse_then(r.then, registry)
         compiled.append((r, cond, (action, params)))
 
     df2 = df.copy(deep=True)
-    hits: list[RuleHit] = []
-    col_report: dict[str, dict[str, Any]] = {}
-    dropped: dict[str, str] = {}
+    hits, col_report, dropped = [], {}, {}
 
     # Initial metrics for per-column recordkeeping
-    metrics = profile_columns(
-        df2,
-        schema_roles,
-        env.get("profiling", {}).get("roles", {}).get("datetime_formats", []),
-    )
+    initial = profile_columns(df2, schema_roles, env.get("profiling", {}).get("roles", {}).get("datetime_formats", []))
 
     for col in list(df2.columns):
         s = df2[col]
-        before_type = metrics[col]["type"]
+        before_type = initial[col]["type"]
         before_role = schema_roles.get(col, "text")
-        actions_taken: list[str] = []
+        actions_taken = []
 
         for r, cond, (act, params) in compiled:
+            # ⬇️ recompute facts for the *current* series before each rule
+            facts = _quick_facts(s, name=col, schema_role=before_role, df_index=df2.index)
             ctx = {
-                **metrics[col],
-                "name": col,
+                **facts,
                 "env": env,
                 "params": _resolve_params(params, env),
                 "cleaning": env.get("cleaning", {}),
@@ -145,7 +177,6 @@ def apply_rules(
                         s, note = res, None
                     actions_taken.append(note or r.id)
             except Exception:
-                # Defensive: skip exploding rule but keep engine pure
                 continue
 
         # assign possibly-updated series
@@ -158,17 +189,15 @@ def apply_rules(
             continue
 
         # update hit record
-        after_type = _series_dtype(df2[col])
         hits.append(RuleHit(
             column=col,
             rule_id=";".join(actions_taken) if actions_taken else "noop",
             before_type=before_type,
-            after_type=after_type,
+            after_type=_series_dtype(df2[col]),
             before_role=before_role,
-            after_role=None,  # can be filled later if we wire roles into rescore
+            after_role=None,
             notes=", ".join(actions_taken) if actions_taken else None,
         ))
-
         col_report[col] = {"actions": actions_taken}
 
     return df2, hits, col_report, dropped

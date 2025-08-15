@@ -213,7 +213,7 @@ class NLPCfg(BaseModel):
     min_schema_confidence: float = 0.85
     min_role_confidence: float = 0.80
     max_iter: int = 3
-    min_improvement: float = 0.03
+    min_improvement: float = 0.00  # 0.00 means no min improvement
     enable_domain_templates: bool = True
     granularity: Literal["slug", "subdir", "file"] = "slug"
     role_scoring: RoleScoringCfg = RoleScoringCfg()

@@ -27,9 +27,9 @@ def compile_actions_registry() -> dict[str, ActionFn]:
         parse_datetime_from_string,
         cast_category_if_small,
     )
-    from .rules_builtin.missing import impute_numeric, impute_value
+    from .rules_builtin.missing import impute_numeric, impute_value, impute_datetime
     from .rules_builtin.outliers import apply_outlier_policy  # returns (series, mask)
-    from .rules_builtin.text_norm import text_normalize
+    from .rules_builtin.text_norm import text_normalize, normalize_null_tokens
     from .rules_builtin.units import standardize_numeric_units  # returns (series, meta)
 
     # Wrap primitives into (s, ctx) -> (s2, notes)
@@ -67,8 +67,10 @@ def compile_actions_registry() -> dict[str, ActionFn]:
         "cast_category":    _wrap(cast_category_if_small, "cast_category"),
         "impute":           _wrap(impute_numeric, "impute"),
         "impute_value":     _wrap(impute_value, "impute_value"),
+        "impute_dt":        _wrap(impute_datetime, "impute_dt"),
         "outliers":         _wrap_outliers(apply_outlier_policy),
         "text_normalize":   _wrap(text_normalize, "text_normalize"),
+        "normalize_null_tokens": _wrap(normalize_null_tokens, "normalize_null_tokens"),
         "standardize_units": _wrap_units(standardize_numeric_units),
         "drop_column":      lambda s, ctx: (pd.Series(dtype="float64"), "drop_column"),
     }
@@ -279,8 +281,10 @@ def parse_then(spec: str, registry: dict[str, ActionFn]) -> tuple[ActionFn, dict
         "cast_category":     ["max_card"],
         "impute":            ["method"],
         "impute_value":      ["value"],
+        "impute_dt": ["method", "value"],
         "outliers":          ["method", "zscore_threshold", "iqr_multiplier", "handle", "winsor_limits"],
         "text_normalize":    ["strip", "lower"],
+        "normalize_null_tokens": ["null_tokens", "case_insensitive", "apply_text_normalize_first"], 
         "standardize_units": ["unit_hint"],
         "drop_column":       [],
     }

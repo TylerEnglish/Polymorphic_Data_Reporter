@@ -61,6 +61,43 @@ def impute_numeric(
 
     raise ValueError("method must be one of: mean, median, ffill, bfill, interpolate")
 
+def impute_datetime(s: pd.Series, method: str = "ffill", value: str | None = None) -> pd.Series:
+    """
+    Impute missing datetimes.
+      method: "ffill" | "bfill" | "median" | "mode" | "constant"
+      value:  used when method="constant" (e.g., "2000-01-01")
+    """
+    x = pd.to_datetime(s, errors="coerce")
+
+    if method in ("ffill", "bfill"):
+        return x.fillna(method=method)
+
+    if method == "median":
+        # handle tz-aware and tz-naive safely, without .view()
+        if hasattr(x.dt, "tz") and x.dt.tz is not None:
+            tz = x.dt.tz
+            vals_i8 = x.dropna().dt.tz_convert("UTC").astype("int64")  # ns since epoch UTC
+            if vals_i8.empty:
+                return x
+            med_ns = int(vals_i8.median())
+            med = pd.to_datetime(med_ns, utc=True).tz_convert(tz)
+        else:
+            vals_i8 = x.dropna().astype("int64")
+            if vals_i8.empty:
+                return x
+            med_ns = int(vals_i8.median())
+            med = pd.to_datetime(med_ns)  # tz-naive
+        return x.fillna(med)
+
+    if method == "mode":
+        m = x.dropna().mode()
+        return x.fillna(m.iloc[0]) if not m.empty else x
+
+    if method == "constant":
+        target = pd.to_datetime("1970-01-01") if value is None else pd.to_datetime(value, errors="coerce")
+        return x.fillna(target)
+
+    return x
 
 def _ensure_category_contains(s: pd.Series, value: Any) -> pd.Series:
     """

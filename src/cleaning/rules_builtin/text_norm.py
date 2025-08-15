@@ -20,7 +20,9 @@ _FANCY_TRANSLATE = {
 }
 
 _DEFAULT_NULL_TOKENS: Set[str] = {
-    "", "-", "—", "–", "—", "n/a", "na", "none", "null", "nil", "nan"
+    "", "-", "—", "–", "n/a", "na", "none", "null", "nil", "nan",
+    "N/A", "NA", "NONE", "NULL", "NIL", "NAN", "NaT",
+    "<NA>", "<na>", "<null>", "<none>"
 }
 
 def _to_str_or_none(x: Any) -> Optional[str]:
