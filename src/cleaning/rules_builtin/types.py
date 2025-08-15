@@ -160,3 +160,12 @@ def cast_category_if_small(s: pd.Series, max_card: int) -> pd.Series:
         return s.astype("category")
     # return a new object even if dtype unchanged
     return s.copy(deep=False)
+
+def cast_string_dtype(s: pd.Series) -> pd.Series:
+    """
+    Ensure text-like columns use Pandas' nullable string dtype.
+    No-op for non-text dtypes.
+    """
+    if pd.api.types.is_object_dtype(s) or pd.api.types.is_string_dtype(s):
+        return s.astype("string")
+    return s

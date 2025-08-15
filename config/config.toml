@@ -49,8 +49,8 @@ iqr_multiplier = 1.5
 sample_rows = 20000
 min_schema_confidence = 0.90
 min_role_confidence = 0.90
-max_iter = 10
-min_improvement = 0.03
+max_iter = 1000
+min_improvement = 0.0
 enable_domain_templates = true
 granularity = "slug"  # slug | subdir | file
 
@@ -103,11 +103,25 @@ winsor_limits = [0.01, 0.99]
 
 # Rulepacks: ordered lists of conditional rules (mini DSL)
 # Builtins are loaded automatically; you can add/override here.
+[cleaning.normalize_null_tokens]
+null_tokens = ["", "NA", "N/A", "N\\A", "None", "NULL", "NaN", "-", "—", "<NA>", "<Null>", "<None>", "nil", "missing"]
+
+[[cleaning.rules]]
+id = "normalize-nulls-first"
+priority = 120
+when = 'type == "string"'
+then = 'normalize_null_tokens(null_tokens=cleaning.normalize_null_tokens.null_tokens, case_insensitive=true)'
 
 [[cleaning.rules]]
 id = "coerce-numeric"
 priority = 100
 when = 'role == "numeric" and type == "string"'
+then = 'coerce_numeric()'
+
+[[cleaning.rules]]
+id = "coerce-numeric-from-string-heuristic"
+priority = 110   # bump above parse/impute to ensure it runs early
+when = 'type == "string" and role != "time" and avg_len <= 24 and missing_pct < 0.99'
 then = 'coerce_numeric()'
 
 [[cleaning.rules]]
@@ -117,8 +131,14 @@ when = 'role == "time" and type == "string"'
 then = 'parse_datetime(datetime_formats)'
 
 [[cleaning.rules]]
+id = "impute-numeric-any"
+priority = 95
+when = 'missing_pct > 0 and (type in ["int","float"] or role in ["numeric","id"])'
+then = 'impute(numeric_default)'
+
+[[cleaning.rules]]
 id = "impute-numeric-time"
-priority = 90
+priority = 92
 when = 'role == "numeric" and missing_pct > 0 and has_time_index'
 then = 'impute("interpolate")'
 
@@ -131,13 +151,13 @@ then = 'impute(numeric_default)'
 [[cleaning.rules]]
 id = "impute-categorical"
 priority = 80
-when = 'role == "categorical" and missing_pct > 0'
+when = 'role == "categorical" and type == "string" and missing_pct > 0'
 then = 'impute_value(categorical_default)'
 
 [[cleaning.rules]]
 id = "impute-text"
-priority = 80
-when = 'role == "text" and missing_pct > 0'
+priority = 55
+when = 'role == "text" and type == "string" and missing_pct > 0 and avg_len >= 8'
 then = 'impute_value(text_default)'
 
 [[cleaning.rules]]
@@ -148,15 +168,57 @@ then = 'outliers(detect, zscore_threshold, iqr_multiplier, handle, winsor_limits
 
 [[cleaning.rules]]
 id = "normalize-text"
-priority = 60
-when = 'role == "text"'
+priority = 50
+when = 'role == "text" and type == "string"'
 then = 'text_normalize(strip=cleaning.normalize.strip_text, lower=cleaning.normalize.lowercase_text)'
 
 [[cleaning.rules]]
 id = "enforce-categorical"
 priority = 50
-when = 'role == "categorical" and cardinality <= cleaning.columns.cat_cardinality_max'
+when = 'role == "categorical" and type == "string" and cardinality <= cleaning.columns.cat_cardinality_max'
 then = 'cast_category()'
+
+[[cleaning.rules]]
+id = "ensure-text-string-dtype"
+priority = 49
+when = 'role == "text"'
+then = 'cast_string()'
+
+[[cleaning.rules]]
+id = "impute-time-default"
+priority = 80
+when = 'role == "time" and missing_pct > 0'
+then = 'impute("ffill")'   # or "bfill"
+
+[[cleaning.rules]]
+id = "impute-time-forward"
+priority = 90
+when = 'role == "time" and missing_pct > 0 and has_time_index'
+then = 'impute_dt("ffill")'
+
+[[cleaning.rules]]
+id = "impute-time-median"
+priority = 80
+when = 'role == "time" and missing_pct > 0'
+then = 'impute_dt("median")'
+
+[[cleaning.rules]]
+id = "materialize-missing-text-literal"
+priority = 44
+when = 'type == "string" and missing_pct > 0'
+then = 'materialize_missing_as(cleaning.impute.text_default)'
+
+[[cleaning.rules]]
+id = "final-null-guard-text"
+priority = 46  # runs after your other imputations (50+), before drops (40)
+when = 'type == "string" and missing_pct > 0'
+then = 'impute_value(text_default)'
+
+[[cleaning.rules]]
+id = "normalize-nulls-last"
+priority = 45
+when = 'type == "string"'
+then = 'normalize_null_tokens(null_tokens=cleaning.normalize_null_tokens.null_tokens, case_insensitive=true, apply_text_normalize_first=false)'
 
 [[cleaning.rules]]
 id = "drop-sparse"
@@ -169,6 +231,12 @@ id = "drop-constant"
 priority = 40
 when = 'unique_ratio <= cleaning.columns.min_unique_ratio and name notin cleaning.columns.always_keep'
 then = 'drop_column()'
+
+[[cleaning.rules]]
+id = "parse-datetime-by-name-heuristic"
+priority = 100
+when = 'type == "string" and (icontains(name,"date") or icontains(name,"time") or icontains(name,"dt_"))'
+then = 'parse_datetime(datetime_formats)'
 
 # ---------- Topic Selection & Charts ----------
 

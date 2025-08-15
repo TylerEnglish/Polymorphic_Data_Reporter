@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from typing import Any
 import pandas as pd
 
@@ -10,6 +10,7 @@ from .dsl import compile_condition, eval_condition
 from .registry import compile_actions_registry, parse_then, NameRef
 from .rescore import rescore_after_clean
 from .report import build_iteration_report
+from ..nlp.suggestions import plan_followups
 
 # ---- Data classes ----
 
@@ -37,6 +38,9 @@ class CleaningResult:
     rescore: dict[str, Any]
     column_report: dict[str, dict[str, Any]]
     dropped: dict[str, str]
+    suggestions: dict[str, list[str]] = field(default_factory=dict)
+    meets_thresholds: bool = False
+    thresholds: dict[str, float] = field(default_factory=dict)
 
 # ---- helpers ----
 
@@ -117,13 +121,47 @@ def run_clean_pass(
         rescore=rescore_result,  # report handles dataclass/dict
     )
 
+    try:
+        min_schema = float(getattr(cfg.nlp, "min_schema_confidence", 0.90))
+    except Exception:
+        min_schema = 0.90
+    try:
+        min_role = float(getattr(cfg.nlp, "min_role_confidence", 0.90))
+    except Exception:
+        min_role = 0.90
+
+    meets = (
+        float(rescore_result.schema_conf_after) >= min_schema
+        and float(rescore_result.avg_role_conf_after) >= min_role
+    )
+
+    suggestions: dict[str, list[str]] = {}
+    if not meets:
+        # plan_followups uses AFTER frame + proposed schema + the detailed rescore map
+        suggestions = plan_followups(df_after, proposed_schema, asdict(rescore_result), cfg)
+
+    # annotate the report so downstream writers/NLG can render targets & actions
+    report["targets"] = {
+        "min_schema_confidence": min_schema,
+        "min_role_confidence": min_role,
+        "schema_conf_after": float(rescore_result.schema_conf_after),
+        "avg_role_conf_after": float(rescore_result.avg_role_conf_after),
+        "met": bool(meets),
+    }
+    if suggestions:
+        report["suggestions"] = suggestions
+
     return CleaningResult(
         clean_df=df_after,
         report=report,
         rescore=asdict(rescore_result),
         column_report=col_report,
         dropped=dropped,
-    )
+        suggestions=suggestions,
+        meets_thresholds=meets,
+        thresholds={"min_schema_confidence": min_schema, "min_role_confidence": min_role},
+     )
+
 
 def apply_rules(
     df: pd.DataFrame,

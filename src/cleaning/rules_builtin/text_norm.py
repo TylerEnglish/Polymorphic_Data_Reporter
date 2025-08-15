@@ -93,4 +93,4 @@ def normalize_null_tokens(
     mask = x.map(_is_null_like)
     out = x.copy(deep=True)
     out[mask] = pd.NA
-    return out.astype(object)
+    return out.astype("string")

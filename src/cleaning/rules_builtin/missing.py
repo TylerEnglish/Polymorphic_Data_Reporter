@@ -4,6 +4,10 @@ import pandas as pd
 import numpy as np
 from pandas.api.types import CategoricalDtype as _CatDtype
 
+_NULL_TOKENS_LOWER = {
+    "", "-", "—", "–", "n/a", "na", "none", "null", "nil", "nan", "nat",
+    "<na>", "<null>", "<none>", "<na>", "<null>", "<none>",
+}
 
 def _is_datetime_index(idx: pd.Index) -> bool:
     try:
@@ -125,15 +129,30 @@ def _fillna_no_warn(s: pd.Series, value: Any) -> pd.Series:
     return out.infer_objects(copy=False)
 
 
-def impute_value(s: pd.Series, value: Any) -> pd.Series:
+def impute_value(s: pd.Series, value: Any, *, force: bool = False) -> pd.Series:
     """
     Generic impute by constant value (works for text/categorical).
-    Pure (returns new Series). Preserves categorical dtype if possible.
+    Always fill with the provided literal (except when value is None and force=False).
     """
+    if (value is None) and (not force):
+        # keep true nulls; ensure pandas "string" if texty
+        if isinstance(s.dtype, _CatDtype):
+            return s.copy(deep=True)
+        if pd.api.types.is_string_dtype(s) or pd.api.types.is_object_dtype(s):
+            return s.astype("string")
+        return s.copy(deep=True)
+
+    # Categorical: ensure category exists, then fill
     if isinstance(s.dtype, _CatDtype):
         cat = _ensure_category_contains(s, value)
         return cat.fillna(value)
-    return _fillna_no_warn(s, value)
+
+    # Text-like: keep nullable string dtype
+    if pd.api.types.is_string_dtype(s) or pd.api.types.is_object_dtype(s):
+        return s.astype("string").fillna(value).astype("string")
+
+    # Numerics / others: fill directly
+    return s.fillna(value)
 
 
 def impute_mode(s: pd.Series) -> pd.Series:

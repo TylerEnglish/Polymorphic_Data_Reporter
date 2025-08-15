@@ -26,6 +26,7 @@ def compile_actions_registry() -> dict[str, ActionFn]:
         coerce_numeric_from_string,
         parse_datetime_from_string,
         cast_category_if_small,
+        cast_string_dtype,
     )
     from .rules_builtin.missing import impute_numeric, impute_value, impute_datetime
     from .rules_builtin.outliers import apply_outlier_policy  # returns (series, mask)
@@ -67,7 +68,12 @@ def compile_actions_registry() -> dict[str, ActionFn]:
         "cast_category":    _wrap(cast_category_if_small, "cast_category"),
         "impute":           _wrap(impute_numeric, "impute"),
         "impute_value":     _wrap(impute_value, "impute_value"),
+        "materialize_missing_as": _wrap( 
+            lambda s, **p: impute_value(s, **{**p, "force": True}),
+            "materialize_missing_as"
+        ),
         "impute_dt":        _wrap(impute_datetime, "impute_dt"),
+        "cast_string": _wrap(cast_string_dtype, "cast_string"),
         "outliers":         _wrap_outliers(apply_outlier_policy),
         "text_normalize":   _wrap(text_normalize, "text_normalize"),
         "normalize_null_tokens": _wrap(normalize_null_tokens, "normalize_null_tokens"),
@@ -281,6 +287,8 @@ def parse_then(spec: str, registry: dict[str, ActionFn]) -> tuple[ActionFn, dict
         "cast_category":     ["max_card"],
         "impute":            ["method"],
         "impute_value":      ["value"],
+         "materialize_missing_as": ["value"],
+        "cast_string":              [],
         "impute_dt": ["method", "value"],
         "outliers":          ["method", "zscore_threshold", "iqr_multiplier", "handle", "winsor_limits"],
         "text_normalize":    ["strip", "lower"],
