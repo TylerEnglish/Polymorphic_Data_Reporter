@@ -75,6 +75,13 @@ def profile_columns(
             btr = 0.0
             dt_ratio = 1.0  # already datetime-like
             is_mono = bool(getattr(s, "is_monotonic_increasing", False))
+        elif t == "bool":
+            stats = {"mean": None, "std": None, "iqr": None, "min": None, "max": None}
+            avg_len = None
+            # treat non-null booleans as perfectly recognized tokens
+            btr = float(1.0 - float(s.isna().mean()))
+            dt_ratio = 0.0
+            is_mono = False
         else:
             stats = {"mean": None, "std": None, "iqr": None, "min": None, "max": None}
             avg_len = None

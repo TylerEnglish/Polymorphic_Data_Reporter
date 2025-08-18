@@ -77,173 +77,287 @@ narrative_filename = "narrative.txt"
 # ---------- Dynamic Cleaning Policy (highly flexible) ----------
 
 [cleaning.columns]
-drop_missing_pct = 0.90
-min_unique_ratio = 0.001
-always_keep = ["id", "date", "timestamp"]
+drop_missing_pct   = 0.90
+min_unique_ratio   = 0.001
+always_keep        = ["id", "date", "timestamp"]
 cat_cardinality_max = 200           # enforce category dtype under this
 
 [cleaning.normalize]
-strip_text = true
-lowercase_text = false
+strip_text        = true
+lowercase_text    = false
 standardize_dates = true
 enforce_categorical = true
 
 [cleaning.impute]
-numeric_default = "median"          # mean|median|ffill|bfill|interpolate
-categorical_default = "Unknown"
-text_default = "N/A"
-time_aware_interpolation = true
+numeric_default            = "median"    # mean|median|ffill|bfill|interpolate
+categorical_default        = "Unknown"
+text_default               = "N/A"
+time_aware_interpolation   = true
 
 [cleaning.outliers]
-detect = "zscore"                   # zscore|iqr
+detect          = "zscore"             # zscore|iqr
 zscore_threshold = 3.0
-iqr_multiplier = 1.5
-handle = "flag"                     # flag|winsorize|drop
-winsor_limits = [0.01, 0.99]
+iqr_multiplier   = 1.5
+handle          = "flag"               # flag|winsorize|drop
+winsor_limits   = [0.01, 0.99]
 
-# Rulepacks: ordered lists of conditional rules (mini DSL)
-# Builtins are loaded automatically; you can add/override here.
+# Centralized “null-like” tokens (used twice: at start & near the end as a guard)
 [cleaning.normalize_null_tokens]
 null_tokens = ["", "NA", "N/A", "N\\A", "None", "NULL", "NaN", "-", "—", "<NA>", "<Null>", "<None>", "nil", "missing"]
 
+# Datetime parsing preferences (used by robust parser and/or fallback)
+[cleaning.datetime]
+utc        = true
+dayfirst   = false
+yearfirst  = false
+# If your pipeline provides a dynamic set of formats (e.g., profiling), keep `datetime_formats` in env.
+# Otherwise you can populate this static list and call parse_datetime(cleaning.datetime.formats)
+formats = ["%Y-%m-%d", "%m/%d/%Y", "%Y/%m/%d", "%Y-%m-%d %H:%M:%S", "%m/%d/%Y %H:%M:%S"]
+
+# Regex presets for common cleanups
+[cleaning.regex]
+# Normalize any Unicode dash/minus variants to ASCII hyphen-minus for numeric parsing
+unicode_minus = "[-−-–—]"
+# Optional: strip common thousands separators *only* when clearly between digits (kept disabled by default rule)
+thousands_between_digits = "(?<=\\d)[,_](?=\\d{3}\\b)"
+
+# ID defaults
+[cleaning.ids]
+zip_width        = 5
+pad_fillchar     = "0"
+pad_numeric_only = true
+
+
+# =========================================
+# Rules: ordered, with conservative guards
+# =========================================
+
+# 1) Normalize null-like tokens ASAP for strings
 [[cleaning.rules]]
 id = "normalize-nulls-first"
-priority = 120
+priority = 130
 when = 'type == "string"'
 then = 'normalize_null_tokens(null_tokens=cleaning.normalize_null_tokens.null_tokens, case_insensitive=true)'
 
+# 2) Normalize Unicode minus/dash to ASCII hyphen BEFORE numeric coercion
+[[cleaning.rules]]
+id = "num:normalize-unicode-minus"
+priority = 125
+when = 'type == "string" and role in ["numeric","id"]'
+then = 'regex_replace(pattern=cleaning.regex.unicode_minus, repl="-")'
+
+# 3) Gentle numeric coercion (handles %, k/m, currency, parentheses-negatives, unicode minus)
 [[cleaning.rules]]
 id = "coerce-numeric"
-priority = 100
+priority = 120
 when = 'role == "numeric" and type == "string"'
 then = 'coerce_numeric()'
 
+# 4) Heuristic numeric coercion for shortish strings that look like numbers but aren’t labeled numeric
 [[cleaning.rules]]
 id = "coerce-numeric-from-string-heuristic"
-priority = 90
+priority = 118
 when = 'type == "string" and role != "time" and avg_len <= 24 and missing_pct < 0.99'
 then = 'coerce_numeric()'
 
+# 5) Text normalization (trim + optional lower) for text fields
 [[cleaning.rules]]
-id = "impute-numeric-any"
-priority = 95
-when = 'missing_pct > 0 and (type in ["int","float"] or role in ["numeric","id"])'
-then = 'impute(numeric_default)'
+id = "normalize-text"
+priority = 110
+when = 'role == "text" and type == "string"'
+then = 'text_normalize(strip=cleaning.normalize.strip_text, lower=cleaning.normalize.lowercase_text)'
 
+# 6) Generic text normalization for text/categorical if a bit noisy
+[[cleaning.rules]]
+id = "text:norm"
+priority = 105
+when = "(role == 'categorical' or role == 'text') and avg_len != null and avg_len >= 1"
+then = "text_normalize(strip=true, lower=true)"
+
+# 7) Normalize null-like tokens again after text normalization (both cat & text)
+[[cleaning.rules]]
+id = "text:null-tokens"
+priority = 104
+when = "(role == 'categorical' or role == 'text')"
+then = "normalize_null_tokens(null_tokens=cleaning.normalize_null_tokens.null_tokens, case_insensitive=true)"
+
+# 8) Coerce booleans from tokens (yes/no, true/false, y/n, 0/1, etc.)
+[[cleaning.rules]]
+id = "bool:tokens"
+priority = 125 
+when = "bool_token_ratio >= 0.57 or istartswith(name,'bool_')"
+then = "coerce_bool()"
+
+# 9) Categorical consolidation (collapse rare labels)
+[[cleaning.rules]]
+id = "cat:rare-collapse"
+priority = 95
+when = "role == 'categorical' and unique_ratio > 0 and unique_ratio <= 0.50"
+then = "rare_cats(0.01, 'Other')"
+
+# 10) Cast to pandas 'category' if small enough
+[[cleaning.rules]]
+id = "cat:cast-small"
+priority = 90
+when = "role == 'categorical' and cardinality <= cleaning.columns.cat_cardinality_max"
+then = "cast_category()"
+
+# 11) Targeted imputation policies
 [[cleaning.rules]]
 id = "impute-numeric-time"
-priority = 92
+priority = 88
 when = 'role == "numeric" and missing_pct > 0 and has_time_index'
 then = 'impute("interpolate")'
 
 [[cleaning.rules]]
 id = "impute-numeric-default"
-priority = 80
+priority = 86
 when = 'role == "numeric" and missing_pct > 0'
 then = 'impute(numeric_default)'
 
 [[cleaning.rules]]
 id = "impute-categorical"
-priority = 80
+priority = 86
 when = 'role == "categorical" and type == "string" and missing_pct > 0'
 then = 'impute_value(categorical_default)'
 
 [[cleaning.rules]]
 id = "impute-text"
-priority = 55
+priority = 84
 when = 'role == "text" and type == "string" and missing_pct > 0 and avg_len >= 8'
 then = 'impute_value(text_default)'
 
+# 12) Outliers – flag or winsorize
 [[cleaning.rules]]
 id = "flag-outliers"
-priority = 70
+priority = 80
 when = 'role == "numeric"'
 then = 'outliers(detect, zscore_threshold, iqr_multiplier, handle, winsor_limits)'
 
 [[cleaning.rules]]
-id = "normalize-text"
-priority = 50
-when = 'role == "text" and type == "string"'
-then = 'text_normalize(strip=cleaning.normalize.strip_text, lower=cleaning.normalize.lowercase_text)'
+id = "outliers:winsorize"
+priority = 78
+when = "role == 'numeric' and std != null and std > 0 and cleaning.outliers.handle == 'winsorize'"
+then = "outliers(method=detect, zscore_threshold=zscore_threshold, iqr_multiplier=iqr_multiplier, handle='winsorize', winsor_limits=winsor_limits)"
+
+# 13) Units – infer/standardize percents
+[[cleaning.rules]]
+id = "units:percent-by-name"
+priority = 76
+when = "role == 'numeric' and (icontains(name, 'percent') or icontains(name, 'pct'))"
+then = "standardize_units('percent')"
 
 [[cleaning.rules]]
-id = "enforce-categorical"
-priority = 50
-when = 'role == "categorical" and type == "string" and cardinality <= cleaning.columns.cat_cardinality_max'
-then = 'cast_category()'
+id = "units:percent-by-range"
+priority = 74
+when = "role == 'numeric' and min >= 0 and max <= 100 and max > 1"
+then = "standardize_units('percent')"
+
+# 14) Strong numeric policies by name (nonnegative amounts/prices)
+[[cleaning.rules]]
+id = "num:nonnegative-by-name"
+priority = 70
+when = "role == 'numeric' and (icontains(name, 'amount') or icontains(name, 'price') or icontains(name, 'cost'))"
+then = "enforce_sign('nonnegative')"
+
+# 15) Treat zeros as missing for ratios/rates/percents
+[[cleaning.rules]]
+id = "num:zero-as-missing"
+priority = 68
+when = "role == 'numeric' and (icontains(name, 'ratio') or icontains(name, 'rate') or icontains(name, 'percent') or icontains(name, 'pct'))"
+then = "zero_as_missing()"
+
+# 16) Datetime parsing for string fields: try explicit formats first, then robust parser
+[[cleaning.rules]]
+id = "dt:parse-formats"
+priority = 90
+when = "role == 'time' and type == 'string'"
+then = "parse_datetime(datetime_formats)"
 
 [[cleaning.rules]]
-id = "ensure-text-string-dtype"
-priority = 49
-when = 'role == "text"'
-then = 'cast_string()'
+id = "dt:parse-robust"
+priority = 88
+when = "role == 'time' and type == 'string'"
+then = "parse_datetime_robust(utc=cleaning.datetime.utc, dayfirst=cleaning.datetime.dayfirst, yearfirst=cleaning.datetime.yearfirst)"
 
+# 17) Parse epoch (seconds/ms/us/ns) for numeric timestamp columns
+[[cleaning.rules]]
+id = "dt:parse-epoch"
+priority = 86
+when = "role == 'time' and type in ['int','float']"
+then = "parse_epoch()"
+
+# 18) Optional rounding/floor/ceil for grouping
+[[cleaning.rules]]
+id = "dt:round-day"
+priority = 60
+when = "role == 'time'"
+then = "dt_round('D')"
+
+# 19) Time imputation policies
 [[cleaning.rules]]
 id = "impute-time-forward"
-priority = 100
+priority = 82
 when = 'role == "time" and missing_pct > 0 and has_time_index'
 then = 'impute_dt("ffill")'
 
-# Otherwise median as a fallback
 [[cleaning.rules]]
 id = "impute-time-default"
-priority = 95
+priority = 80
 when = 'role == "time" and missing_pct > 0 and not has_time_index'
 then = 'impute_dt("median")'
 
+# 20) ID hygiene – ZIP: alnum only, then zero-pad (numeric_only so “SW1A” won’t get mangled)
 [[cleaning.rules]]
-id = "impute-time-median"
-priority = 80
-when = 'role == "time" and missing_pct > 0'
-then = 'impute_dt("median")'
+id = "id:zip-clean"
+priority = 72
+when = "(icontains(name, 'zip') or icontains(name, 'postal'))"
+then = "keep_alnum()"
 
 [[cleaning.rules]]
+id = "id:zip-pad"
+priority = 71
+when = "(icontains(name, 'zip') or icontains(name, 'postal'))"
+then = "zero_pad(cleaning.ids.zip_width, cleaning.ids.pad_fillchar, numeric_only=cleaning.ids.pad_numeric_only)"
+
+# 21) Phone numbers: strip to digits only
+[[cleaning.rules]]
+id = "id:phone-digits"
+priority = 72
+when = "(icontains(name, 'phone') or icontains(name, 'tel')) and type == 'string'"
+then = "extract_digits()"
+
+# 22) Final text NA guard & materialization (ensures no bare empty strings survive)
+[[cleaning.rules]]
 id = "materialize-missing-text-literal"
-priority = 44
+priority = 52
 when = 'type == "string" and missing_pct > 0'
 then = 'materialize_missing_as(cleaning.impute.text_default)'
 
 [[cleaning.rules]]
 id = "final-null-guard-text"
-priority = 46  # runs after your other imputations (50+), before drops (40)
+priority = 51
 when = 'type == "string" and missing_pct > 0'
 then = 'impute_value(text_default)'
 
 [[cleaning.rules]]
 id = "normalize-nulls-last"
-priority = 45
+priority = 50
 when = 'type == "string"'
 then = 'normalize_null_tokens(null_tokens=cleaning.normalize_null_tokens.null_tokens, case_insensitive=true, apply_text_normalize_first=false)'
 
+# 23) Pruning: sparse & constant (unless allow-listed)
 [[cleaning.rules]]
 id = "drop-sparse"
 priority = 40
-when = 'missing_pct >= cleaning.columns.drop_missing_pct and name notin cleaning.columns.always_keep'
+when = "missing_pct >= cleaning.columns.drop_missing_pct and role notin ['boolean','text','categorical','id'] and name notin cleaning.columns.always_keep"
 then = 'drop_column()'
 
 [[cleaning.rules]]
 id = "drop-constant"
 priority = 40
-when = 'unique_ratio <= cleaning.columns.min_unique_ratio and name notin cleaning.columns.always_keep'
+when = "unique_ratio <= cleaning.columns.min_unique_ratio and role notin ['boolean','text','categorical','id'] and name notin cleaning.columns.always_keep"
 then = 'drop_column()'
-
-[[cleaning.rules]]
-id = "parse-datetime-by-name-heuristic"
-priority = 130
-when = 'type == "string" and (icontains(name,"date") or icontains(name,"time") or icontains(name,"dt_"))'
-then = 'parse_datetime(datetime_formats)'
-
-[[cleaning.rules]]
-id = "parse-datetime"
-priority = 120
-when = 'role == "time" and type == "string"'
-then = 'parse_datetime(datetime_formats)'
-
-[[cleaning.rules]]
-id = "parse-datetime-from-numeric"
-priority = 118
-when = 'role == "time" and type in ["int","float"]'
-then = 'parse_epoch()'   # auto-detects ns/ms/s
 
 # ---------- Topic Selection & Charts ----------
 

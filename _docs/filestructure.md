@@ -45,9 +45,13 @@ polymorphic-data-reporter/
 │  │  ├─ registry.py         # registers rules from packs
 │  │  ├─ policy.py           # builds policy from config (currying)
 │  │  ├─ dsl.py              # simple condition DSL (missing_pct > 0.9 etc.)
+│  │  ├─ metrics.py
+│  │  ├─ report.py
+│  │  ├─ rescore.py
 │  │  ├─ rules_builtin/
 │  │  │  ├─ types.py         # coercions, datetime parse, category cast
 │  │  │  ├─ missing.py       # numeric/cat/text imputation
+│  │  │  ├─ datetime.py
 │  │  │  ├─ outliers.py      # zscore/iqr detect + flag/winsorize/drop
 │  │  │  ├─ text_norm.py     # trim, case, unicode normalize
 │  │  │  ├─ units.py         # unit standardization (config-driven)

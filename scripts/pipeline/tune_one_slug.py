@@ -292,6 +292,41 @@ def _bootstrap_overlay_roles(old_bootstrap: dict, new_cols: list[dict], slug: st
     out["columns"] = cols_out
     return out
 
+# ------------------------ sticky learning helpers ------------------------
+
+PROTECTED_ROLE_SET = {"id", "time"}
+
+def _protected_keep_set(cfg: RootCfg, proposed: ProposedSchema) -> set[str]:
+    keep = set(getattr(cfg.cleaning.columns, "always_keep", []) or [])
+    for col in proposed.columns:
+        role = (getattr(col.role_confidence, "role", "") or "").lower()
+        if role in PROTECTED_ROLE_SET:
+            keep.add(col.name)
+    return keep
+
+def _merge_learning(prev: ProposedSchema, df_after: pd.DataFrame, cfg: RootCfg) -> ProposedSchema:
+    """
+    Learn roles from df_after, but re-attach missing protected columns from previous schema.
+    """
+    # infer fresh roles from the columns that still exist
+    fresh = _infer_roles_for_df(df_after, cfg)
+    fresh_names = {c["name"] for c in fresh}
+
+    # bring back protected columns that were dropped this round
+    protected = _protected_keep_set(cfg, prev)
+    resurrect: list[dict] = []
+    for c in prev.columns:
+        if c.name in protected and c.name not in fresh_names:
+            resurrect.append({
+                "name": c.name,
+                "dtype": c.dtype,
+                "role": c.role_confidence.role,
+                "role_confidence": float(getattr(c.role_confidence, "confidence", 0.0)),
+            })
+
+    merged = fresh + resurrect
+    return _proposed_from_cols(prev.dataset_slug, merged)
+
 # ------------------------ scoring / progress ------------------------
 
 def _frame_missing_rate(df: pd.DataFrame) -> float:
@@ -409,27 +444,29 @@ def main():
     }
 
     no_improve_rounds = 0
+    # Persist follow-up suggestions across iterations
+    prev_suggestions: dict[str, list[str]] = {}
 
     for it in range(1, args.max_iters + 1):
         print("\n" + "=" * 80)
         print(f"ITER {it}")
 
-        # clean starting from the sampled/raw frame with the *current* proposal
-        prev_suggestions = {}
-        for it in range(1, args.max_iters + 1):
-            extra_rules = []
-            for col, actions in (prev_suggestions or {}).items():
-                for i, then in enumerate(actions, start=1):
-                    extra_rules.append(
-                        RuleSpec(
-                            id=f"followup-{col}-{i}",
-                            priority=999,
-                            when=f'name == "{col}"',
-                            then=then,
-                        )
+        # build follow-up rules from previous iteration's suggestions
+        extra_rules: list[RuleSpec] = []
+        for col, actions in (prev_suggestions or {}).items():
+            for i, then in enumerate(actions, start=1):
+                extra_rules.append(
+                    RuleSpec(
+                        id=f"followup-{col}-{i}",
+                        priority=999,
+                        when=f'name == "{col}"',
+                        then=then,
                     )
-            result = run_clean_pass(df_raw, proposed, cfg, extra_rules=extra_rules)
-            prev_suggestions = result.report.get("suggestions", {})
+                )
+
+        # single clean pass per outer iteration
+        result = run_clean_pass(df_raw, proposed, cfg, extra_rules=extra_rules)
+        prev_suggestions = result.report.get("suggestions", {}) or {}
 
         df_after = result.clean_df
 
@@ -489,29 +526,48 @@ def main():
                 "df": df_after,
             })
 
-            # Build new roles from the NEW cleaned df and write back artifacts
-            new_cols = _infer_roles_for_df(df_after, cfg)
-            new_proposed = _proposed_from_cols(args.slug, new_cols)
+            # Build new roles from the NEW cleaned df but keep protected columns sticky
+            prev_protected = _protected_keep_set(cfg, proposed)
+            missing_protected = sorted([name for name in prev_protected if name not in df_after.columns])
 
-            if args.write_back:
-                updated_bootstrap = _bootstrap_overlay_roles(
-                    _load_bootstrap(_bootstrap_path(bronze)),
-                    new_cols,
-                    slug=args.slug,
-                    schema_conf=new_proposed.schema_confidence,
-                )
-                _save_bootstrap(_bootstrap_path(bronze), updated_bootstrap)
-                out_toml = _save_schema_toml(project_root, args.slug, new_proposed)
-                print(f"[WRITE] nlp_bootstrap.json updated; schema TOML -> {out_toml}")
+            new_proposed = _merge_learning(proposed, df_after, cfg)
 
-            proposed = new_proposed
+            if missing_protected:
+                print(f"[learning] restored protected columns into proposed schema: {missing_protected}")
 
-            if args.save_best:
-                silver = _silver_dir(project_root, args.slug)
-                silver.mkdir(parents=True, exist_ok=True)
-                outp = silver / "cleaned_best.parquet"
-                df_after.to_parquet(outp, index=False)
-                print(f"[SAVE] best cleaned -> {outp}")
+            # guard against schema collapse
+            orig_cols = {c.name for c in proposed.columns}
+            new_cols_set = {c.name for c in new_proposed.columns}
+            drop_ratio = max(0.0, (len(orig_cols - new_cols_set) / max(1, len(orig_cols))))
+            if drop_ratio > 0.30:
+                print(f"[learning] skip schema update (drop_ratio={drop_ratio:.2%} too high)")
+            else:
+                proposed = new_proposed
+
+                if args.write_back:
+                    # write the merged/learned proposal back to bootstrap + TOML
+                    merged_cols_for_bootstrap = [{
+                        "name": c.name,
+                        "dtype": c.dtype,
+                        "role": c.role_confidence.role,
+                        "role_confidence": float(getattr(c.role_confidence, "confidence", 0.0)),
+                    } for c in proposed.columns]
+                    updated_bootstrap = _bootstrap_overlay_roles(
+                        _load_bootstrap(_bootstrap_path(bronze)),
+                        merged_cols_for_bootstrap,
+                        slug=args.slug,
+                        schema_conf=proposed.schema_confidence,
+                    )
+                    _save_bootstrap(_bootstrap_path(bronze), updated_bootstrap)
+                    out_toml = _save_schema_toml(project_root, args.slug, proposed)
+                    print(f"[WRITE] nlp_bootstrap.json updated; schema TOML -> {out_toml}")
+
+                if args.save_best:
+                    silver = _silver_dir(project_root, args.slug)
+                    silver.mkdir(parents=True, exist_ok=True)
+                    outp = silver / "cleaned_best.parquet"
+                    df_after.to_parquet(outp, index=False)
+                    print(f"[SAVE] best cleaned -> {outp}")
         else:
             no_improve_rounds += 1
             print(f"[STOPPING] no improvement ({no_improve_rounds}/{args.patience})")

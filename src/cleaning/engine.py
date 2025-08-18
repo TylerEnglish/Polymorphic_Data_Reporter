@@ -12,6 +12,22 @@ from .rescore import rescore_after_clean
 from .report import build_iteration_report
 from ..nlp.suggestions import plan_followups
 
+# --- role normalization (synonyms) ---
+def _norm_role_name(r: str | None) -> str:
+    r = (r or "").lower()
+    # unify common synonyms so policy/DSL can reliably match
+    if r in {"bool", "boolean"}:
+        return "boolean"
+    if r in {"time", "datetime", "date"}:
+        return "time"
+    if r in {"int", "float", "number", "numeric", "double", "decimal"}:
+        return "numeric"
+    if r in {"category", "categorical"}:
+        return "categorical"
+    if r in {"text", "string"}:
+        return "text"
+    return r
+
 # ---- Data classes ----
 
 @dataclass(frozen=True)
@@ -64,7 +80,7 @@ def _quick_facts(series: pd.Series, *, name: str, schema_role: str, df_index) ->
     return {
         "name": name,
         "type": t,
-        "role": schema_role,                  # keep schema role stable
+        "role": _norm_role_name(schema_role),  # provide normalized role for DSL
         "missing_pct": missing_pct,
         "non_null_ratio": 1.0 - missing_pct,
         "nunique": nunique,
@@ -99,7 +115,9 @@ def run_clean_pass(df, proposed_schema, cfg, extra_rules: list[RuleSpec] | None 
 
     registry = compile_actions_registry()
 
-    schema_roles = {c["name"]: c["role"] for c in proposed_schema.to_dict()["columns"]}
+    # normalize schema roles into a canonical set so DSL conditions like role == "boolean" match
+    schema_roles = {c["name"]: _norm_role_name(c["role"]) for c in proposed_schema.to_dict()["columns"]}
+
 
     metrics_before = profile_columns(df, schema_roles, cfg.profiling.roles.datetime_formats)
     df_after, hits, col_report, dropped = apply_rules(df, schema_roles, rules, env, registry)
@@ -192,12 +210,12 @@ def apply_rules(
 
     for col in list(df2.columns):
         s = df2[col]
+        orig_s = s.copy(deep=True)
         before_type = initial[col]["type"]
         before_role = schema_roles.get(col, "text")
         actions_taken = []
 
         for r, cond, (act, params) in compiled:
-            # ⬇️ recompute facts for the *current* series before each rule
             facts = _quick_facts(s, name=col, schema_role=before_role, df_index=df2.index)
             ctx = {
                 **facts,
@@ -221,11 +239,19 @@ def apply_rules(
         # assign possibly-updated series
         df2[col] = s
 
-        # optionally drop if marked; registry.drop_column returns empty series
+        # Drop-safety: only drop on explicit drop_column(); never by accident.
         if s is not None and getattr(s, "size", 0) == 0 and col in df2.columns:
-            dropped[col] = "drop_column"
-            df2 = df2.drop(columns=[col])
-            continue
+            last_note = (actions_taken[-1] if actions_taken else "") or ""
+            explicit_drop = ("drop_column" in last_note)
+            # extra guard: do not drop boolean-looking columns unless explicitly asked
+            is_boolish_name = col.lower().startswith(("bool_", "is_", "has_", "flag_"))
+            is_boolean_role = _norm_role_name(before_role) == "boolean"
+            if explicit_drop and not (is_boolean_role or is_boolish_name):
+                dropped[col] = "drop_column"
+                df2 = df2.drop(columns=[col])
+                continue
+            # restore original if drop was not explicit (accidental empty series)
+            df2[col] = orig_s
 
         # update hit record
         hits.append(RuleHit(

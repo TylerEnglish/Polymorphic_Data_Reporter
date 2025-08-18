@@ -33,6 +33,25 @@ def compile_actions_registry() -> dict[str, ActionFn]:
     from .rules_builtin.text_norm import text_normalize, normalize_null_tokens
     from .rules_builtin.units import standardize_numeric_units  # returns (series, meta)
     from .rules_builtin.datetime_ops import parse_epoch_auto
+    from .rules_builtin.date_parts import (
+        dt_round,
+        dt_part,
+        to_datetime_robust,
+        dt_floor,
+        dt_ceil,
+        extract_datetime_from_text,
+    )
+    from .rules_builtin.bool_norm import coerce_bool_from_tokens
+    from .rules_builtin.categorical import (
+        consolidate_rare_categories,
+        map_category_synonyms,
+        extract_category_key,
+        extract_category_anchor,
+        fuzzy_map_categories,
+    )
+    from .rules_builtin.regex_ops import regex_replace, extract_digits
+    from .rules_builtin.numeric_ops import clip_range, enforce_sign, zero_as_missing
+    from .rules_builtin.id_ops import zero_pad, keep_alnum
 
     # Wrap primitives into (s, ctx) -> (s2, notes)
     def _wrap(fn, note_fmt: str) -> ActionFn:
@@ -63,24 +82,79 @@ def compile_actions_registry() -> dict[str, ActionFn]:
             return s2, f"standardize_units({unit_in}->{unit_out}{rescaled})"
         return inner
 
+    def _wrap_note(fn, note_builder) -> ActionFn:
+        def inner(s: pd.Series, ctx: dict[str, Any]):
+            params = ctx.get("params", {}) or {}
+            s2 = fn(s, **params)
+            return s2, str(note_builder(params))
+        return inner
+
     registry: dict[str, ActionFn] = {
         "coerce_numeric":   _wrap(coerce_numeric_from_string, "coerce_numeric"),
         "parse_datetime":   _wrap(parse_datetime_from_string, "parse_datetime"),
+
+        # Epoch + robust datetime parsing/extraction
+        "parse_epoch": _wrap(parse_epoch_auto, "parse_epoch"),
+        "parse_datetime_robust": _wrap_note(
+            to_datetime_robust,
+            lambda p: (
+                f"parse_datetime_robust("
+                f"utc={p.get('utc', False)},"
+                f"dayfirst={p.get('dayfirst', False)},"
+                f"yearfirst={p.get('yearfirst', False)})"
+            ),
+        ),
+        "extract_datetime": _wrap_note(extract_datetime_from_text, lambda p: "extract_datetime"),
+        "dt_floor": _wrap_note(dt_floor, lambda p: f"dt_floor({p.get('freq','D')})"),
+        "dt_ceil":  _wrap_note(dt_ceil,  lambda p: f"dt_ceil({p.get('freq','D')})"),
+
+        # Casting / missing
         "cast_category":    _wrap(cast_category_if_small, "cast_category"),
+        "cast_string":      _wrap(cast_string_dtype, "cast_string"),
         "impute":           _wrap(impute_numeric, "impute"),
         "impute_value":     _wrap(impute_value, "impute_value"),
-        "materialize_missing_as": _wrap( 
+        "materialize_missing_as": _wrap(
             lambda s, **p: impute_value(s, **{**p, "force": True}),
             "materialize_missing_as"
         ),
-        "parse_epoch": _wrap(parse_epoch_auto, "parse_epoch"),
         "impute_dt":        _wrap(impute_datetime, "impute_dt"),
-        "cast_string": _wrap(cast_string_dtype, "cast_string"),
-        "outliers":         _wrap_outliers(apply_outlier_policy),
-        "text_normalize":   _wrap(text_normalize, "text_normalize"),
+
+        # Outliers / text / units
+        "outliers":             _wrap_outliers(apply_outlier_policy),
+        "text_normalize":       _wrap(text_normalize, "text_normalize"),
         "normalize_null_tokens": _wrap(normalize_null_tokens, "normalize_null_tokens"),
-        "standardize_units": _wrap_units(standardize_numeric_units),
-        "drop_column":      lambda s, ctx: (pd.Series(dtype="float64"), "drop_column"),
+        "standardize_units":    _wrap_units(standardize_numeric_units),
+
+        # Column ops
+        "drop_column": lambda s, ctx: (pd.Series(dtype="float64"), "drop_column"),
+        "coerce_bool": _wrap_note(coerce_bool_from_tokens, lambda p: "coerce_bool"),
+
+        # Categorical
+        "cat_consolidate":  _wrap(consolidate_rare_categories, "cat_consolidate"),
+        "cat_map_synonyms": _wrap(map_category_synonyms, "cat_map_synonyms"),
+        "cat_extract_key":  _wrap(extract_category_key, "cat_extract_key"),
+        "cat_extract_anchor": _wrap(extract_category_anchor, "cat_extract_anchor"),
+        "cat_fuzzy_map":    _wrap(fuzzy_map_categories, "cat_fuzzy_map"),
+
+        # Back-compat categorical aliases
+        "rare_cats":    _wrap(consolidate_rare_categories, "rare_cats"),
+        "map_synonyms": _wrap(map_category_synonyms, "map_synonyms"),
+
+        # Regex / ID / numeric utilities
+        "regex_replace": _wrap_note(
+            regex_replace,
+            lambda p: f"regex_replace({p.get('pattern','')!r})"
+        ),
+        "extract_digits":   _wrap_note(extract_digits, lambda p: "extract_digits"),
+        "zero_pad":         _wrap_note(zero_pad, lambda p: f"zero_pad(width={p.get('width',5)})"),
+        "keep_alnum":       _wrap_note(keep_alnum, lambda p: "keep_alnum"),
+        "clip":             _wrap_note(clip_range, lambda p: f"clip(lo={p.get('lo')},hi={p.get('hi')})"),
+        "enforce_sign":     _wrap_note(enforce_sign, lambda p: f"enforce_sign({p.get('sign','nonnegative')})"),
+        "zero_as_missing":  _wrap_note(zero_as_missing, lambda p: f"zero_as_missing(eps={p.get('eps',0.0)})"),
+
+        # Datetime rounding / parts
+        "dt_round": _wrap_note(dt_round, lambda p: f"dt_round({p.get('freq','D')})"),
+        "dt_part":  _wrap_note(dt_part,  lambda p: f"dt_part({p.get('part','date')})"),
     }
     return registry
 
@@ -286,17 +360,73 @@ def parse_then(spec: str, registry: dict[str, ActionFn]) -> tuple[ActionFn, dict
     ACTION_POS_PARAMS: dict[str, list[str]] = {
         "coerce_numeric":    ["unit_hint"],
         "parse_datetime":    ["formats"],
+
+        "parse_epoch":       [],  # already keyworded in practice
+        "parse_datetime_robust": ["utc", "dayfirst", "yearfirst"],
+        "extract_datetime":  ["patterns", "case_insensitive"],
+
         "cast_category":     ["max_card"],
+        "cast_string":       [],
+
         "impute":            ["method"],
         "impute_value":      ["value"],
-         "materialize_missing_as": ["value"],
-        "cast_string":              [],
-        "impute_dt": ["method", "value"],
+        "materialize_missing_as": ["value"],
+        "impute_dt":         ["method", "value"],
+
         "outliers":          ["method", "zscore_threshold", "iqr_multiplier", "handle", "winsor_limits"],
-        "text_normalize":    ["strip", "lower"],
-        "normalize_null_tokens": ["null_tokens", "case_insensitive", "apply_text_normalize_first"], 
         "standardize_units": ["unit_hint"],
+
+        "text_normalize":    ["strip", "lower"],
+        "normalize_null_tokens": ["null_tokens", "case_insensitive", "apply_text_normalize_first"],
+
         "drop_column":       [],
+
+        # Fully fleshed-out coerce_bool positional support
+        "coerce_bool": [
+            "true_tokens",
+            "false_tokens",
+            "true_regex",
+            "false_regex",
+            "numeric_01_only",
+            "allow_numeric_truthy",
+            "case_insensitive",
+            "strip_nonword_edges",
+            "drop_invalid",
+        ],
+
+        # Numeric utilities
+        "clip":              ["lo", "hi"],
+        "enforce_sign":      ["sign"],
+        "zero_as_missing":   ["eps"],
+
+        # ID utilities
+        "zero_pad":          ["width", "fillchar"],
+        "keep_alnum":        [],
+
+        # Datetime parts/rounding
+        "dt_round":          ["freq"],
+        "dt_floor":          ["freq"],
+        "dt_ceil":           ["freq"],
+        "dt_part":           ["part"],
+
+        # Regex ops (now with count & literal too)
+        "regex_replace":     ["pattern", "repl", "flags", "count", "literal"],
+        "extract_digits":    [],
+
+        # Categorical (current names)
+        "cat_consolidate":   ["min_freq", "other_label"],
+        "cat_map_synonyms":  ["mapping", "case_insensitive", "strip"],
+        "cat_extract_key": [
+            "patterns", "capture_group", "default", "case_insensitive",
+            "allow_digits", "min_token_len", "stopwords", "prefer_global_frequency",
+            "candidates", "max_distance", "max_rel_distance",
+        ],
+        "cat_extract_anchor": ["allow_digits", "min_token_len", "stopwords", "prefer_global_frequency"],
+        "cat_fuzzy_map":      ["candidates", "case_insensitive", "max_distance", "max_rel_distance"],
+
+        # Categorical (aliases for back-compat)
+        "rare_cats":         ["min_freq", "other_label"],
+        "map_synonyms":      ["mapping", "case_insensitive", "strip"],
     }
 
     toks = _tokenize(spec)
