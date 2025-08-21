@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional, Tuple
 import json
 import pandas as pd
 import pyarrow.parquet as pq  # fast path for parquet
-# polars is optional at call-site; we keep pandas default to reduce surprises
 
 from .storage import Storage
 

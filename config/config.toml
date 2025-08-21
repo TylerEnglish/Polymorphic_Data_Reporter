@@ -77,29 +77,35 @@ narrative_filename = "narrative.txt"
 # ---------- Dynamic Cleaning Policy (highly flexible) ----------
 
 [cleaning.columns]
-drop_missing_pct   = 0.90
-min_unique_ratio   = 0.001
-always_keep        = ["id", "date", "timestamp"]
-cat_cardinality_max = 200           # enforce category dtype under this
+drop_missing_pct      = 0.90
+min_unique_ratio      = 0.001
+always_keep           = ["id", "date", "timestamp"]
+cat_cardinality_max   = 200
+
+# Optional name-based pruning helpers (used by the drop:* rules below)
+droppable_exact       = ["_source_uri", "batch_id"]
+droppable_prefixes    = ["_tmp", "_raw", "tmp_", "raw_"]
+droppable_suffixes    = ["_hash", "_checksum"]
 
 [cleaning.normalize]
-strip_text        = true
-lowercase_text    = false
-standardize_dates = true
-enforce_categorical = true
+strip_text            = true
+lowercase_text        = false
+standardize_dates     = true
+enforce_categorical   = true
 
 [cleaning.impute]
-numeric_default            = "median"    # mean|median|ffill|bfill|interpolate
-categorical_default        = "Unknown"
-text_default               = "N/A"
-time_aware_interpolation   = true
+numeric_default             = "median"    # mean|median|ffill|bfill|interpolate
+categorical_default         = "Unknown"
+text_default                = "N/A"
+boolean_default             = false
+time_aware_interpolation    = true
 
 [cleaning.outliers]
-detect          = "zscore"             # zscore|iqr
-zscore_threshold = 3.0
-iqr_multiplier   = 1.5
-handle          = "flag"               # flag|winsorize|drop
-winsor_limits   = [0.01, 0.99]
+detect            = "zscore"             # zscore|iqr
+zscore_threshold  = 3.0
+iqr_multiplier    = 1.5
+handle            = "flag"               # flag|winsorize|drop
+winsor_limits     = [0.01, 0.99]
 
 # Centralized “null-like” tokens (used twice: at start & near the end as a guard)
 [cleaning.normalize_null_tokens]
@@ -111,14 +117,14 @@ utc        = true
 dayfirst   = false
 yearfirst  = false
 # If your pipeline provides a dynamic set of formats (e.g., profiling), keep `datetime_formats` in env.
-# Otherwise you can populate this static list and call parse_datetime(cleaning.datetime.formats)
-formats = ["%Y-%m-%d", "%m/%d/%Y", "%Y/%m/%d", "%Y-%m-%d %H:%M:%S", "%m/%d/%Y %H:%M:%S"]
+# Otherwise populate this static list and call parse_datetime(cleaning.datetime.formats)
+formats    = ["%Y-%m-%d", "%m/%d/%Y", "%Y/%m/%d", "%Y-%m-%d %H:%M:%S", "%m/%d/%Y %H:%M:%S"]
 
 # Regex presets for common cleanups
 [cleaning.regex]
 # Normalize any Unicode dash/minus variants to ASCII hyphen-minus for numeric parsing
-unicode_minus = "[-−-–—]"
-# Optional: strip common thousands separators *only* when clearly between digits (kept disabled by default rule)
+unicode_minus            = "[-−-–—]"
+# Strip common thousands separators *only* when clearly between digits
 thousands_between_digits = "(?<=\\d)[,_](?=\\d{3}\\b)"
 
 # ID defaults
@@ -146,18 +152,32 @@ priority = 125
 when = 'type == "string" and role in ["numeric","id"]'
 then = 'regex_replace(pattern=cleaning.regex.unicode_minus, repl="-")'
 
-# 3) Gentle numeric coercion (handles %, k/m, currency, parentheses-negatives, unicode minus)
+# 2b) Remove thousands separators between digits prior to numeric coercion
+[[cleaning.rules]]
+id = "num:strip-thousands"
+priority = 123
+when = 'type == "string" and role in ["numeric","id"]'
+then = 'regex_replace(pattern=cleaning.regex.thousands_between_digits, repl="")'
+
+# 3) Coerce numeric (but never touch id-like names even if mis-scored as numeric)
 [[cleaning.rules]]
 id = "coerce-numeric"
 priority = 120
-when = 'role == "numeric" and type == "string"'
+when = 'role == "numeric" and type == "string" and not icontains(name,"id")'
 then = 'coerce_numeric()'
 
-# 4) Heuristic numeric coercion for shortish strings that look like numbers but aren’t labeled numeric
+# 4) Heuristic numeric coercion for shortish numeric-looking strings (also honors num_* prefix)
 [[cleaning.rules]]
 id = "coerce-numeric-from-string-heuristic"
 priority = 118
-when = 'type == "string" and role != "time" and avg_len <= 24 and missing_pct < 0.99'
+when = '''
+  type == "string"
+  and role notin ["time","categorical","text"]
+  and not istartswith(name,"cat_")
+  and numeric_like_ratio != null and numeric_like_ratio >= 0.92
+  and (unique_ratio == null or unique_ratio <= 0.50)
+  and (avg_len == null or avg_len <= 18)
+'''
 then = 'coerce_numeric()'
 
 # 5) Text normalization (trim + optional lower) for text fields
@@ -184,9 +204,16 @@ then = "normalize_null_tokens(null_tokens=cleaning.normalize_null_tokens.null_to
 # 8) Coerce booleans from tokens (yes/no, true/false, y/n, 0/1, etc.)
 [[cleaning.rules]]
 id = "bool:tokens"
-priority = 125 
+priority = 126
 when = "bool_token_ratio >= 0.57 or istartswith(name,'bool_')"
 then = "coerce_bool()"
+
+# 8b) Fill missing booleans with the configured default (False)
+[[cleaning.rules]]
+id = "bool:impute-default"
+priority = 124
+when = 'role == "boolean" and missing_pct > 0'
+then = 'impute_value(cleaning.impute.boolean_default)'
 
 # 9) Categorical consolidation (collapse rare labels)
 [[cleaning.rules]]
@@ -346,17 +373,36 @@ priority = 50
 when = 'type == "string"'
 then = 'normalize_null_tokens(null_tokens=cleaning.normalize_null_tokens.null_tokens, case_insensitive=true, apply_text_normalize_first=false)'
 
-# 23) Pruning: sparse & constant (unless allow-listed)
+# 23) Name-based pruning (safe without custom DSL helpers)
+[[cleaning.rules]]
+id = "drop:name-noise-exact"
+priority = 45
+when = "name in cleaning.columns.droppable_exact"
+then = "drop_column()"
+
+[[cleaning.rules]]
+id = "drop:name-noise-prefix"
+priority = 45
+when = "istartswith(name,'_tmp') or istartswith(name,'_raw') or istartswith(name,'tmp_') or istartswith(name,'raw_')"
+then = "drop_column()"
+
+[[cleaning.rules]]
+id = "drop:name-noise-suffix"
+priority = 45
+when = "icontains(name,'_hash') or icontains(name,'_checksum')"
+then = "drop_column()"
+
+# 24) Pruning: sparse & constant (unless allow-listed)
 [[cleaning.rules]]
 id = "drop-sparse"
 priority = 40
-when = "missing_pct >= cleaning.columns.drop_missing_pct and role notin ['boolean','text','categorical','id'] and name notin cleaning.columns.always_keep"
+when = "missing_pct >= cleaning.columns.drop_missing_pct and role notin ['boolean','text','categorical','id','time'] and name notin cleaning.columns.always_keep"
 then = 'drop_column()'
 
 [[cleaning.rules]]
 id = "drop-constant"
 priority = 40
-when = "unique_ratio <= cleaning.columns.min_unique_ratio and role notin ['boolean','text','categorical','id'] and name notin cleaning.columns.always_keep"
+when = "unique_ratio <= cleaning.columns.min_unique_ratio and role notin ['boolean','text','categorical','id','time'] and name notin cleaning.columns.always_keep"
 then = 'drop_column()'
 
 # ---------- Topic Selection & Charts ----------

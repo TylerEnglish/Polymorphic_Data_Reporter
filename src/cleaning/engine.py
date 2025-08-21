@@ -64,23 +64,65 @@ def _dtype_tag(s: pd.Series) -> str:
     from ..nlp.roles import _dtype_str
     return _dtype_str(s)
 
+def _ensure_call_syntax(then: str) -> str:
+    s = (then or "").strip()
+    return (s + "()") if s and "(" not in s and ")" not in s else s
 
 def _quick_facts(series: pd.Series, *, name: str, schema_role: str, df_index) -> dict:
-    n = len(series) or 1
-    t = _dtype_tag(series)
+    s = series
+    n = len(s) or 1
+    t = _dtype_tag(s)
+
+    # nunique
     try:
-        nunique = int(series.nunique(dropna=True))
+        nunique = int(s.nunique(dropna=True))
     except TypeError:
-        nunique = int(series.astype(str).nunique(dropna=True))
+        nunique = int(s.astype(str).nunique(dropna=True))
+
+    # avg_len (only for strings)
     avg_len = None
     if t == "string":
-        vals = series.dropna().astype(str)
+        vals = s.dropna().astype(str)
         avg_len = float(vals.map(len).mean()) if not vals.empty else 0.0
-    missing_pct = float(series.isna().mean())
+
+    missing_pct = float(s.isna().mean())
+
+    # --- NEW: ratios the rules can use ---
+    # boolean-like token ratio
+    def _bool_token_ratio(series: pd.Series) -> float:
+        if series.dtype == "boolean" or pd.api.types.is_bool_dtype(series):
+            return 1.0
+        try:
+            st = series.dropna().astype(str).str.strip().str.lower()
+        except Exception:
+            return 0.0
+        if st.empty:
+            return 0.0
+        true_tokens = {"true","t","1","yes","y"}
+        false_tokens = {"false","f","0","no","n"}
+        m = st.isin(true_tokens | false_tokens)
+        return float(m.mean())
+
+    # numeric-like ratio (how many values would parse as numbers)
+    def _numeric_like_ratio(series: pd.Series) -> float:
+        if pd.api.types.is_numeric_dtype(series):
+            return 1.0
+        try:
+            st = series.dropna().astype(str)
+            # strip commas, percents, parentheses-negatives
+            st = (st.str.replace(",", "", regex=False)
+                     .str.replace("%", "", regex=False)
+                     .str.replace(r"^\((.*)\)$", r"-\1", regex=True)
+                     .str.strip())
+            conv = pd.to_numeric(st, errors="coerce")
+            return float(conv.notna().mean())
+        except Exception:
+            return 0.0
+
     return {
         "name": name,
         "type": t,
-        "role": _norm_role_name(schema_role),  # provide normalized role for DSL
+        "role": _norm_role_name(schema_role),
         "missing_pct": missing_pct,
         "non_null_ratio": 1.0 - missing_pct,
         "nunique": nunique,
@@ -88,9 +130,13 @@ def _quick_facts(series: pd.Series, *, name: str, schema_role: str, df_index) ->
         "cardinality": nunique,
         "avg_len": avg_len,
         "has_time_index": pd.api.types.is_datetime64_any_dtype(df_index),
-        # extras used in some rules; safe defaults if not needed
+
+        # NEW signals used by rules
+        "bool_token_ratio": _bool_token_ratio(s),
+        "numeric_like_ratio": _numeric_like_ratio(s),
+
+        # keep placeholders for rules that reference them
         "mean": None, "std": None, "iqr": None,
-        "bool_token_ratio": 0.0,
         "datetime_parse_ratio": 0.0,
         "is_monotonic_increasing": False,
     }
@@ -121,6 +167,16 @@ def run_clean_pass(df, proposed_schema, cfg, extra_rules: list[RuleSpec] | None 
 
     metrics_before = profile_columns(df, schema_roles, cfg.profiling.roles.datetime_formats)
     df_after, hits, col_report, dropped = apply_rules(df, schema_roles, rules, env, registry)
+    try:
+        bool_default = bool(getattr(cfg.cleaning.impute, "boolean_default", False))
+    except Exception:
+        bool_default = False
+
+    if bool_default is not None:
+        for c in df_after.columns:
+            s = df_after[c]
+            if str(s.dtype) == "boolean" or pd.api.types.is_bool_dtype(s):
+                df_after[c] = s.fillna(bool_default)
     metrics_after = profile_columns(df_after, schema_roles, cfg.profiling.roles.datetime_formats)
 
     # Rescore using NLP before/after confidences (returns a dataclass)
@@ -195,27 +251,38 @@ def apply_rules(
     # Sort rules: higher priority first; stable
     rules_sorted = sorted(rules, key=lambda r: (-r.priority, r.id))
 
-    # Pre-compile conditions & actions
+    # Pre-compile conditions & actions (be lenient about call syntax)
     compiled = []
     for r in rules_sorted:
         cond = compile_condition(r.when)
-        action, params = parse_then(r.then, registry)
-        compiled.append((r, cond, (action, params)))
+        then_str = _ensure_call_syntax(r.then)
+        try:
+            action, params = parse_then(then_str, registry)
+        except Exception:
+            # Skip invalid rules rather than blowing up the whole pass
+            continue
+        compiled.append((r, cond, (action, params, then_str)))
 
     df2 = df.copy(deep=True)
-    hits, col_report, dropped = [], {}, {}
+    hits: list[RuleHit] = []
+    col_report: dict[str, dict[str, Any]] = {}
+    dropped: dict[str, str] = {}
 
     # Initial metrics for per-column recordkeeping
-    initial = profile_columns(df2, schema_roles, env.get("profiling", {}).get("roles", {}).get("datetime_formats", []))
+    initial = profile_columns(
+        df2, schema_roles, env.get("profiling", {}).get("roles", {}).get("datetime_formats", [])
+    )
 
     for col in list(df2.columns):
         s = df2[col]
         orig_s = s.copy(deep=True)
         before_type = initial[col]["type"]
         before_role = schema_roles.get(col, "text")
-        actions_taken = []
 
-        for r, cond, (act, params) in compiled:
+        actions_taken: list[str] = []
+        will_drop = False
+
+        for r, cond, (act, params, then_str) in compiled:
             facts = _quick_facts(s, name=col, schema_role=before_role, df_index=df2.index)
             ctx = {
                 **facts,
@@ -232,26 +299,39 @@ def apply_rules(
                         s, note = res
                     else:
                         s, note = res, None
-                    actions_taken.append(note or r.id)
+                    # record what happened (prefer action note, fall back to rule id)
+                    label = (note or r.id or "").strip()
+                    if label:
+                        actions_taken.append(label)
+                    # hard signal: any fired action or note that mentions drop_column → drop wins
+                    if "drop_column" in then_str or (label and "drop_column" in label):
+                        will_drop = True
             except Exception:
+                # Swallow per-action failures so one bad rule doesn't abort the pass
                 continue
+
+        # Unconditional drop if any drop rule fired (drop wins even if later actions added data)
+        if will_drop:
+            hits.append(RuleHit(
+                column=col,
+                rule_id=";".join(actions_taken) if actions_taken else "drop_column",
+                before_type=before_type,
+                after_type="__dropped__",
+                before_role=before_role,
+                after_role=None,
+                notes=", ".join(actions_taken) if actions_taken else "drop_column",
+            ))
+            col_report[col] = {"actions": actions_taken, "dropped": True}
+            dropped[col] = "drop_column"
+            df2 = df2.drop(columns=[col])
+            continue
+
+        # Accidental empty → revert unless explicitly dropped
+        if s is not None and getattr(s, "size", 0) == 0:
+            s = orig_s  # revert
 
         # assign possibly-updated series
         df2[col] = s
-
-        # Drop-safety: only drop on explicit drop_column(); never by accident.
-        if s is not None and getattr(s, "size", 0) == 0 and col in df2.columns:
-            last_note = (actions_taken[-1] if actions_taken else "") or ""
-            explicit_drop = ("drop_column" in last_note)
-            # extra guard: do not drop boolean-looking columns unless explicitly asked
-            is_boolish_name = col.lower().startswith(("bool_", "is_", "has_", "flag_"))
-            is_boolean_role = _norm_role_name(before_role) == "boolean"
-            if explicit_drop and not (is_boolean_role or is_boolish_name):
-                dropped[col] = "drop_column"
-                df2 = df2.drop(columns=[col])
-                continue
-            # restore original if drop was not explicit (accidental empty series)
-            df2[col] = orig_s
 
         # update hit record
         hits.append(RuleHit(

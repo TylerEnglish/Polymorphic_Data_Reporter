@@ -56,10 +56,31 @@ def text_normalize(
     strip: bool = True,
     lower: bool = False,
 ) -> pd.Series:
+    # Always return a new object (purity), even for non-strings
     if not (pd.api.types.is_object_dtype(s.dtype) or pd.api.types.is_string_dtype(s.dtype)):
         return s.copy(deep=True)
-    out = s.map(lambda v: _normalize_one(v, strip=strip, lower=lower))
-    return out.astype(object)
+
+    # Remember which entries were literally `None` so we can preserve that sentinel
+    none_mask = s.map(lambda v: v is None)
+
+    # Do fast, NA-safe vectorized ops using pandas' "string" accessor
+    out = s.astype("string")
+    out = out.str.normalize("NFKC")
+    out = out.str.translate(_FANCY_TRANSLATE)
+    out = out.str.replace(_CONTROL_RE, "", regex=True)
+    out = out.str.replace(_WHITESPACE_RE, " ", regex=True)
+    if strip:
+        out = out.str.strip()
+    if lower:
+        out = out.str.lower()
+
+    # Optional: treat empty-string as missing (keeps your cleaning logic effective)
+    out = out.replace("", pd.NA)
+
+    # Convert back to object dtype and restore literal None where it existed
+    out = out.astype(object)
+    out[none_mask] = None
+    return out
 
 def normalize_null_tokens(
     s: pd.Series,
@@ -71,7 +92,6 @@ def normalize_null_tokens(
     if not (pd.api.types.is_object_dtype(s.dtype) or pd.api.types.is_string_dtype(s.dtype)):
         return s.copy(deep=True)
 
-    # union custom tokens with defaults instead of replacing them
     base = set(_DEFAULT_NULL_TOKENS)
     if null_tokens is not None:
         base |= set(null_tokens)
@@ -82,15 +102,12 @@ def normalize_null_tokens(
         if tt is not None:
             norm_tokens.add(tt)
 
-    x = text_normalize(s, strip=True, lower=case_insensitive) if apply_text_normalize_first else s.astype(object)
+    x = (
+        text_normalize(s, strip=True, lower=case_insensitive)
+        if apply_text_normalize_first
+        else s.astype("string")
+    )
 
-    def _is_null_like(v: Any) -> bool:
-        if pd.isna(v):
-            return True
-        vv = _to_str_or_none(v)
-        return vv in norm_tokens if vv is not None else True
-
-    mask = x.map(_is_null_like)
-    out = x.copy(deep=True)
-    out[mask] = pd.NA
-    return out.astype("string")
+    # NA or equals any normalized token → NA
+    mask = x.isna() | x.isin(norm_tokens)
+    return x.mask(mask, other=pd.NA)
