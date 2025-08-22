@@ -1,0 +1,100 @@
+{
+  "sections": [
+    {
+      "section_id": "sec-001",
+      "title": "Correlation \u2013 dt_03, dt_04",
+      "topic_ref": "assoc_cat_cat-a000bfde87",
+      "narrative_keys": [],
+      "components": [
+        {
+          "component_id": "comp-001",
+          "kind": "table",
+          "proposed_charts": [
+            "table"
+          ],
+          "dataset_spec": {
+            "family": "correlation",
+            "primary_fields": [
+              "dt_03",
+              "dt_04"
+            ],
+            "secondary_fields": [],
+            "time_field": null,
+            "topic_id": "assoc_cat_cat-a000bfde87",
+            "dataset_slug": "f3"
+          },
+          "encodings": {},
+          "export": {
+            "html": true,
+            "png": true
+          },
+          "badges": []
+        }
+      ]
+    },
+    {
+      "section_id": "sec-002",
+      "title": "Correlation \u2013 dt_02, dt_03",
+      "topic_ref": "assoc_cat_cat-d057b0b8cc",
+      "narrative_keys": [],
+      "components": [
+        {
+          "component_id": "comp-002",
+          "kind": "table",
+          "proposed_charts": [
+            "table"
+          ],
+          "dataset_spec": {
+            "family": "correlation",
+            "primary_fields": [
+              "dt_02",
+              "dt_03"
+            ],
+            "secondary_fields": [],
+            "time_field": null,
+            "topic_id": "assoc_cat_cat-d057b0b8cc",
+            "dataset_slug": "f3"
+          },
+          "encodings": {},
+          "export": {
+            "html": true,
+            "png": true
+          },
+          "badges": []
+        }
+      ]
+    },
+    {
+      "section_id": "sec-003",
+      "title": "Correlation \u2013 dt_02, dt_04",
+      "topic_ref": "assoc_cat_cat-6767f4cf22",
+      "narrative_keys": [],
+      "components": [
+        {
+          "component_id": "comp-003",
+          "kind": "table",
+          "proposed_charts": [
+            "table"
+          ],
+          "dataset_spec": {
+            "family": "correlation",
+            "primary_fields": [
+              "dt_02",
+              "dt_04"
+            ],
+            "secondary_fields": [],
+            "time_field": null,
+            "topic_id": "assoc_cat_cat-6767f4cf22",
+            "dataset_slug": "f3"
+          },
+          "encodings": {},
+          "export": {
+            "html": true,
+            "png": true
+          },
+          "badges": []
+        }
+      ]
+    }
+  ]
+}

@@ -76,7 +76,7 @@ def parallel_coordinates(
     fig.update_layout(title=title or "Parallel Coordinates")
     return apply_theme(fig, theme_from_cfg(theme_name))
 
-# Advanced / TODOs:
+
 def marimekko(
     df: pd.DataFrame,
     *,

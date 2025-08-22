@@ -27,7 +27,7 @@ password = "admin"
 [sources]
 # discover from both local and MinIO
 locations = [
-  "file://data/raw/sales_demo",
+  "file://data/raw/",
   "s3://datasets/raw/iot_sensors/"
 ]
 
@@ -46,10 +46,10 @@ iqr_multiplier = 1.5
 # ---------- NLP / NLG ----------
 
 [nlp]
-sample_rows = 20000
-min_schema_confidence = 0.90
-min_role_confidence = 0.90
-max_iter = 1000
+sample_rows = 200000
+min_schema_confidence = 0.75
+min_role_confidence = 0.75
+max_iter = 5
 min_improvement = 0.0
 enable_domain_templates = true
 granularity = "slug"  # slug | subdir | file
@@ -106,6 +106,10 @@ zscore_threshold  = 3.0
 iqr_multiplier    = 1.5
 handle            = "flag"               # flag|winsorize|drop
 winsor_limits     = [0.01, 0.99]
+
+[columns.X.role_confidence]
+role = "numeric"
+confidence = 0.93
 
 # Centralized “null-like” tokens (used twice: at start & near the end as a guard)
 [cleaning.normalize_null_tokens]

@@ -1,0 +1,55 @@
+{
+  "components": [
+    {
+      "topic_id": "assoc_cat_cat-a000bfde87",
+      "family": "correlation",
+      "path": "C:\\Users\\tyler.english\\Projects\\testing\\poly_project\\Polymorphic_Data_Reporter\\data\\gold\\f4\\transformed_data\\component_001_correlation.parquet",
+      "proposed_charts": [
+        "table"
+      ]
+    },
+    {
+      "topic_id": "ranking_count-6867de76c0",
+      "family": "ranking",
+      "path": "C:\\Users\\tyler.english\\Projects\\testing\\poly_project\\Polymorphic_Data_Reporter\\data\\gold\\f4\\transformed_data\\component_002_ranking.parquet",
+      "proposed_charts": [
+        "ordered_bar",
+        "ordered_column",
+        "lollipop",
+        "dot_strip_plot"
+      ]
+    },
+    {
+      "topic_id": "p2w_count-aa6a572b32",
+      "family": "part_to_whole",
+      "path": "C:\\Users\\tyler.english\\Projects\\testing\\poly_project\\Polymorphic_Data_Reporter\\data\\gold\\f4\\transformed_data\\component_003_part_to_whole.parquet",
+      "proposed_charts": [
+        "treemap",
+        "pie_guarded",
+        "donut_guarded"
+      ]
+    },
+    {
+      "topic_id": "ranking_count-a033ecad12",
+      "family": "ranking",
+      "path": "C:\\Users\\tyler.english\\Projects\\testing\\poly_project\\Polymorphic_Data_Reporter\\data\\gold\\f4\\transformed_data\\component_004_ranking.parquet",
+      "proposed_charts": [
+        "ordered_bar",
+        "ordered_column",
+        "lollipop",
+        "dot_strip_plot"
+      ]
+    },
+    {
+      "topic_id": "p2w_count-bb3ab68930",
+      "family": "part_to_whole",
+      "path": "C:\\Users\\tyler.english\\Projects\\testing\\poly_project\\Polymorphic_Data_Reporter\\data\\gold\\f4\\transformed_data\\component_005_part_to_whole.parquet",
+      "proposed_charts": [
+        "treemap",
+        "pie_guarded",
+        "donut_guarded"
+      ]
+    }
+  ],
+  "charts": []
+}

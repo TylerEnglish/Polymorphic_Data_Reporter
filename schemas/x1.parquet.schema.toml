@@ -1,12 +1,12 @@
-dataset = "x1"
+dataset = "x1.parquet"
 version = 1
-schema_confidence = 0.8585
+schema_confidence = 0.7679
 
 [[columns]]
 name = "batch_id"
 dtype = "string"
-role = "text"
-role_confidence = 0.7
+role = "categorical"
+role_confidence = 0.8
 
 [columns.hints]
 unit_hint = ""
@@ -17,8 +17,8 @@ domain_guess = ""
 [[columns]]
 name = "row_id"
 dtype = "int"
-role = "numeric"
-role_confidence = 0.98
+role = "id"
+role_confidence = 0.8
 
 [columns.hints]
 unit_hint = ""
@@ -30,7 +30,7 @@ domain_guess = ""
 name = "entity_id"
 dtype = "int"
 role = "numeric"
-role_confidence = 0.98
+role_confidence = 0.8
 
 [columns.hints]
 unit_hint = ""
@@ -42,7 +42,7 @@ domain_guess = ""
 name = "event_time"
 dtype = "datetime"
 role = "time"
-role_confidence = 0.9
+role_confidence = 0.955
 
 [columns.hints]
 unit_hint = ""
@@ -53,8 +53,8 @@ domain_guess = ""
 [[columns]]
 name = "num_01"
 dtype = "float"
-role = "numeric"
-role_confidence = 0.98
+role = "id"
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -66,7 +66,7 @@ domain_guess = ""
 name = "num_02"
 dtype = "string"
 role = "text"
-role_confidence = 0.7
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -78,7 +78,7 @@ domain_guess = ""
 name = "num_03"
 dtype = "string"
 role = "text"
-role_confidence = 0.7
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -88,9 +88,9 @@ domain_guess = ""
 
 [[columns]]
 name = "num_04"
-dtype = "string"
+dtype = "float"
 role = "numeric"
-role_confidence = 0.98
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -102,7 +102,7 @@ domain_guess = ""
 name = "num_05"
 dtype = "string"
 role = "text"
-role_confidence = 0.7
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -113,8 +113,8 @@ domain_guess = ""
 [[columns]]
 name = "num_06"
 dtype = "string"
-role = "numeric"
-role_confidence = 0.98
+role = "text"
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -126,7 +126,7 @@ domain_guess = ""
 name = "num_07"
 dtype = "string"
 role = "text"
-role_confidence = 0.7
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -136,9 +136,9 @@ domain_guess = ""
 
 [[columns]]
 name = "num_08"
-dtype = "string"
+dtype = "float"
 role = "numeric"
-role_confidence = 0.98
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -150,7 +150,7 @@ domain_guess = ""
 name = "num_09"
 dtype = "string"
 role = "text"
-role_confidence = 0.7
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -161,8 +161,8 @@ domain_guess = ""
 [[columns]]
 name = "num_10"
 dtype = "string"
-role = "numeric"
-role_confidence = 0.98
+role = "text"
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -172,9 +172,9 @@ domain_guess = ""
 
 [[columns]]
 name = "num_11"
-dtype = "string"
+dtype = "float"
 role = "numeric"
-role_confidence = 0.98
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -184,9 +184,9 @@ domain_guess = ""
 
 [[columns]]
 name = "num_12"
-dtype = "string"
+dtype = "float"
 role = "numeric"
-role_confidence = 0.98
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -197,8 +197,8 @@ domain_guess = ""
 [[columns]]
 name = "bool_01"
 dtype = "bool"
-role = "boolean"
-role_confidence = 0.95
+role = "bool"
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -208,9 +208,9 @@ domain_guess = ""
 
 [[columns]]
 name = "bool_02"
-dtype = "string"
-role = "boolean"
-role_confidence = 0.95
+dtype = "bool"
+role = "bool"
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -220,9 +220,9 @@ domain_guess = ""
 
 [[columns]]
 name = "bool_03"
-dtype = "string"
-role = "boolean"
-role_confidence = 0.95
+dtype = "bool"
+role = "bool"
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -232,9 +232,9 @@ domain_guess = ""
 
 [[columns]]
 name = "bool_04"
-dtype = "string"
-role = "boolean"
-role_confidence = 0.95
+dtype = "bool"
+role = "bool"
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -246,7 +246,7 @@ domain_guess = ""
 name = "cat_01"
 dtype = "string"
 role = "text"
-role_confidence = 0.7
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -258,7 +258,7 @@ domain_guess = ""
 name = "text_01"
 dtype = "string"
 role = "text"
-role_confidence = 0.7
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -270,7 +270,7 @@ domain_guess = ""
 name = "text_02"
 dtype = "string"
 role = "text"
-role_confidence = 0.7
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -282,7 +282,7 @@ domain_guess = ""
 name = "dt_01"
 dtype = "datetime"
 role = "time"
-role_confidence = 0.9
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -294,7 +294,7 @@ domain_guess = ""
 name = "dt_02"
 dtype = "datetime"
 role = "time"
-role_confidence = 0.9
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""
@@ -305,8 +305,8 @@ domain_guess = ""
 [[columns]]
 name = "_source_uri"
 dtype = "string"
-role = "text"
-role_confidence = 0.7
+role = "categorical"
+role_confidence = 0.755
 
 [columns.hints]
 unit_hint = ""

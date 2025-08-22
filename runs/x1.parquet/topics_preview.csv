@@ -1,0 +1,12 @@
+topic_id,family,primary_fields,secondary_fields,time_field,n_obs,coverage_pct,effect_size,effect_detail,significance,causal_design,assumptions_met,readability,complexity_penalty,proposed_charts
+assoc_cat_cat-43b7f5ffd3,correlation,['dt_01' 'dt_02'],[],,142823,1.0,0.006134398851816906,"{""cramers_v"": 0.006134398851816906, ""cells"": 16}","{""p_value"": null, ""test"": ""chi2""}",,[],1.0,0.2,"[""table""]"
+assoc_cat_cat-0cdab57d33,correlation,['event_time' 'dt_01'],[],,142823,1.0,0.0042035540685116815,"{""cramers_v"": 0.0042035540685116815, ""cells"": 16}","{""p_value"": null, ""test"": ""chi2""}",,[],1.0,0.2,"[""table""]"
+assoc_cat_cat-b55955e1a3,correlation,['event_time' 'dt_02'],[],,142823,1.0,0.0034717375419989604,"{""cramers_v"": 0.0034717375419989604, ""cells"": 16}","{""p_value"": null, ""test"": ""chi2""}",,[],1.0,0.2,"[""table""]"
+ranking_count-6867de76c0,ranking,['event_time' '__row_count__'],[],,142823,1.0,0.0,"{""metric"": ""count""}",{},,[],1.0,0.03,"[""ordered_bar"", ""ordered_column"", ""lollipop"", ""dot_strip_plot""]"
+p2w_count-aa6a572b32,part_to_whole,['event_time' '__row_count__'],[],,142823,1.0,0.0,"{""metric"": ""count""}",{},,[],1.0,0.03,"[""treemap"", ""pie_guarded"", ""donut_guarded""]"
+ranking_count-5690f3f39a,ranking,['dt_01' '__row_count__'],[],,142823,1.0,0.0,"{""metric"": ""count""}",{},,[],1.0,0.03,"[""ordered_bar"", ""ordered_column"", ""lollipop"", ""dot_strip_plot""]"
+p2w_count-9c00c9b04c,part_to_whole,['dt_01' '__row_count__'],[],,142823,1.0,0.0,"{""metric"": ""count""}",{},,[],1.0,0.03,"[""treemap"", ""pie_guarded"", ""donut_guarded""]"
+ranking_count-55ba6d59ee,ranking,['dt_02' '__row_count__'],[],,142823,1.0,0.0,"{""metric"": ""count""}",{},,[],1.0,0.03,"[""ordered_bar"", ""ordered_column"", ""lollipop"", ""dot_strip_plot""]"
+p2w_count-f433045447,part_to_whole,['dt_02' '__row_count__'],[],,142823,1.0,0.0,"{""metric"": ""count""}",{},,[],1.0,0.03,"[""treemap"", ""pie_guarded"", ""donut_guarded""]"
+ranking_dow-24e5c16f50,ranking,['day_of_week' '__row_count__'],[],event_time,142823,1.0,0.0,"{""metric"": ""count"", ""derived_category"": ""day_of_week""}",{},,[],1.0,0.04,"[""ordered_bar"", ""ordered_column"", ""lollipop""]"
+ranking_hod-6c7a2f5578,ranking,['hour_of_day' '__row_count__'],[],event_time,142823,1.0,0.0,"{""metric"": ""count"", ""derived_category"": ""hour_of_day""}",{},,[],1.0,0.04,"[""ordered_bar"", ""ordered_column"", ""lollipop""]"

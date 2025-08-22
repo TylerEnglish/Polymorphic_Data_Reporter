@@ -1,0 +1,108 @@
+{
+  "sections": [
+    {
+      "section_id": "sec-001",
+      "title": "Ranking \u2013 dt_01, __row_count__",
+      "topic_ref": "ranking_count-5690f3f39a",
+      "narrative_keys": [],
+      "components": [
+        {
+          "component_id": "comp-001",
+          "kind": "ordered_bar",
+          "proposed_charts": [
+            "ordered_bar",
+            "ordered_column",
+            "lollipop",
+            "dot_strip_plot"
+          ],
+          "dataset_spec": {
+            "family": "ranking",
+            "primary_fields": [
+              "dt_01",
+              "__row_count__"
+            ],
+            "secondary_fields": [],
+            "time_field": null,
+            "topic_id": "ranking_count-5690f3f39a",
+            "dataset_slug": "x1.parquet"
+          },
+          "encodings": {},
+          "export": {
+            "html": true,
+            "png": true
+          },
+          "badges": []
+        }
+      ]
+    },
+    {
+      "section_id": "sec-002",
+      "title": "Part_To_Whole \u2013 event_time, __row_count__",
+      "topic_ref": "p2w_count-aa6a572b32",
+      "narrative_keys": [],
+      "components": [
+        {
+          "component_id": "comp-002",
+          "kind": "treemap",
+          "proposed_charts": [
+            "treemap",
+            "pie_guarded",
+            "donut_guarded"
+          ],
+          "dataset_spec": {
+            "family": "part_to_whole",
+            "primary_fields": [
+              "event_time",
+              "__row_count__"
+            ],
+            "secondary_fields": [],
+            "time_field": null,
+            "topic_id": "p2w_count-aa6a572b32",
+            "dataset_slug": "x1.parquet"
+          },
+          "encodings": {},
+          "export": {
+            "html": true,
+            "png": true
+          },
+          "badges": []
+        }
+      ]
+    },
+    {
+      "section_id": "sec-003",
+      "title": "Ranking \u2013 event_time, __row_count__",
+      "topic_ref": "ranking_count-6867de76c0",
+      "narrative_keys": [],
+      "components": [
+        {
+          "component_id": "comp-003",
+          "kind": "ordered_bar",
+          "proposed_charts": [
+            "ordered_bar",
+            "ordered_column",
+            "lollipop",
+            "dot_strip_plot"
+          ],
+          "dataset_spec": {
+            "family": "ranking",
+            "primary_fields": [
+              "event_time",
+              "__row_count__"
+            ],
+            "secondary_fields": [],
+            "time_field": null,
+            "topic_id": "ranking_count-6867de76c0",
+            "dataset_slug": "x1.parquet"
+          },
+          "encodings": {},
+          "export": {
+            "html": true,
+            "png": true
+          },
+          "badges": []
+        }
+      ]
+    }
+  ]
+}

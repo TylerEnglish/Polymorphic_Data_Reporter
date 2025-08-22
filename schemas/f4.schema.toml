@@ -1,0 +1,495 @@
+dataset = "f4"
+version = 1
+schema_confidence = 0.7495
+
+[[columns]]
+name = "batch_id"
+dtype = "string"
+role = "categorical"
+role_confidence = 0.8
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "row_id"
+dtype = "int"
+role = "id"
+role_confidence = 0.8
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "entity_id"
+dtype = "int"
+role = "numeric"
+role_confidence = 0.8
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "event_time"
+dtype = "datetime"
+role = "time"
+role_confidence = 0.955
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_01"
+dtype = "float"
+role = "id"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_02"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_03"
+dtype = "float"
+role = "numeric"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "bool_01"
+dtype = "bool"
+role = "bool"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "text_01"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "dt_01"
+dtype = "datetime"
+role = "time"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "dt_02"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "_source_uri"
+dtype = "string"
+role = "categorical"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_04"
+dtype = "float"
+role = "numeric"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_05"
+dtype = "float"
+role = "numeric"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_06"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_07"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_08"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_09"
+dtype = "float"
+role = "numeric"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_10"
+dtype = "float"
+role = "numeric"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_11"
+dtype = "float"
+role = "numeric"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_12"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_13"
+dtype = "float"
+role = "numeric"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_14"
+dtype = "float"
+role = "numeric"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_15"
+dtype = "float"
+role = "numeric"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_16"
+dtype = "float"
+role = "numeric"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_17"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_18"
+dtype = "float"
+role = "numeric"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "num_19"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "cat_01"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "cat_02"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "text_02"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "cat_03"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "cat_04"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "text_03"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "text_04"
+dtype = "string"
+role = "text"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "bool_02"
+dtype = "bool"
+role = "bool"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "bool_03"
+dtype = "bool"
+role = "bool"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "bool_04"
+dtype = "bool"
+role = "bool"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "dt_03"
+dtype = "datetime"
+role = "time"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "dt_04"
+dtype = "datetime"
+role = "time"
+role_confidence = 0.755
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
+
+[[columns]]
+name = "dt_05"
+dtype = "datetime"
+role = "text"
+role_confidence = 0.1942
+
+[columns.hints]
+unit_hint = ""
+domain_guess = ""
+
+[columns.hints.canonical_map]
