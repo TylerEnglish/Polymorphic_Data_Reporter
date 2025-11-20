@@ -1,7 +1,3 @@
-Here’s a draft README you can drop straight into the repo (no code blocks, just text):
-
----
-
 # Polymorphic Data Reporter
 
 ## Goal
@@ -104,3 +100,4 @@ In short: the core pipeline skeleton, I/O, charting, NLP stubs, cleaning logic, 
 
 [1]: https://github.com/TylerEnglish/Polymorphic_Data_Reporter "GitHub - TylerEnglish/Polymorphic_Data_Reporter"
 [2]: https://github.com/TylerEnglish/Polymorphic_Data_Reporter/commits/main/ "Commits · TylerEnglish/Polymorphic_Data_Reporter · GitHub"
+
